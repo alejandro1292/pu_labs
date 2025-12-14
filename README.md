@@ -124,6 +124,6 @@ El audio se procesa localmente para mantener la privacidad y reducir la latencia
 
 ## Instalación y Uso
 1. Clona el repositorio
-2. Ejecuta `docker-compose up` para iniciar los servicios
-3. Accede a la interfaz web en `http://localhost`
+2. Ejecuta `docker-compose up --build` para iniciar los servicios
+3. Accede a la interfaz web en `http://localhost:8000/app/index.html`
 4. Comienza experimentando con las diferentes funcionalidades
