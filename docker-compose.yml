@@ -1,0 +1,71 @@
+services:
+  interface:
+    build:
+      context: ./interface
+      dockerfile: Dockerfile
+    container_name: interface
+    ports:
+      - "8000:8000"
+    volumes:
+      # Código en desarrollo (hot-reload)
+      - ./interface/backend:/app/backend
+      - ./interface/frontend:/app/frontend
+      # Persistir modelos entrenados y grabaciones
+      - voice-models:/app/backend/models
+      - voice-db:/app/backend/data
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+    restart: unless-stopped
+    networks:
+      - red_transcripcion
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      vosk:
+        condition: service_healthy
+
+  vosk:
+    build:
+      context: ./vosk_service
+      dockerfile: Dockerfile
+    container_name: servicio_vosk
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./vosk_service/src:/app/src
+      - datos_audio:/datos_audio
+      # Use a local ./models folder for Vosk model files (bind mount makes it easy to place model)
+      - ./models:/models
+    environment:
+      - PYTHONUNBUFFERED=1
+      - VOSK_MODEL_PATH=/models
+    restart: unless-stopped
+    networks:
+      - red_transcripcion
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+networks:
+  red_transcripcion:
+    driver: bridge
+
+volumes:
+  voice-models:
+    name: pulab_voice_models
+  voice-db:
+    name: pulab_db
+  datos_audio:
+    name: pulab_audio
+  cache_modelos:
+    name: pulab_vosk_cache
+  modelos_vosk:
+    name: pulab_vosk_models

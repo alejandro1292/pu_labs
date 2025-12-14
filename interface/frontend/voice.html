@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Reconocimiento de Voz - Voice Commander</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <a href="index.html" class="back-link">Menú Principal</a>
+    <div class="container">
+        <header>
+            <h1>Prueba de Voz</h1>
+            <p class="subtitle">Sistema de reconocimiento de voz por comandos (Random Forest)</p>
+        </header>
+
+        <main>
+            <!-- Panel de Control -->
+            <section class="control-panel">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 30px;">
+                    <div style="flex: 1;">
+                        <h2>Control</h2>
+                        
+                        <div class="status-group">
+                            <div class="status-item">
+                                <span class="status-label">Micrófono:</span>
+                                <span id="mic-status" class="status-badge status-inactive">Inactivo</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Conexión:</span>
+                                <span id="ws-status" class="status-badge status-disconnected">Desconectado</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">VAD:</span>
+                                <span id="vad-status" class="status-badge">Silencio</span>
+                            </div>
+                        </div>
+
+                        <div class="button-group">
+                            <button id="start-btn" class="btn btn-primary">
+                                <span class="btn-icon">▶️</span> Iniciar Micrófono
+                            </button>
+                            <button id="stop-btn" class="btn btn-secondary" disabled>
+                                <span class="btn-icon">⏹️</span> Detener
+                            </button>
+                            <button id="reset-btn" class="btn btn-secondary">
+                                <span class="btn-icon">🔄</span> Reiniciar
+                            </button>
+                        </div>
+
+                        <div class="info-box">
+                            <strong>Keywords disponibles:</strong>
+                            <div id="keywords-list" class="keywords-list"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Visualización circular de audio -->
+                    <div class="audio-visualization-container">
+                        <h3 style="margin: 0 0 10px 0; text-align: center; color: var(--primary-color); font-size: 1rem;">Audio</h3>
+                        <div style="position: relative;">
+                            <canvas id="live-audio-canvas" width="200" height="200"></canvas>
+                            <div id="audio-overlay" class="audio-overlay">
+                                <div id="current-detection" class="detection-overlay-content">
+                                    <span class="detection-placeholder"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="text-align: center; margin-top: 10px; font-size: 0.85rem; color: var(--text-secondary);">
+                            <span id="audio-level">Nivel: -</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Panel de Historial -->
+            <section class="history-panel">
+                <h2>Historial de Detecciones</h2>
+                <div class="history-controls">
+                    <button id="clear-history-btn" class="btn btn-small">
+                        🗑️ Limpiar Historial
+                    </button>
+                </div>
+                <div id="detection-history" class="history-list">
+                    <div class="history-placeholder">
+                        No hay detecciones aún
+                    </div>
+                </div>
+            </section>
+        </main>
+
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- Confirm Modal -->
+    <div id="confirm-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 id="confirm-title">Confirmar</h2>
+            </div>
+            <div class="modal-body">
+                <p id="confirm-message" style="white-space: pre-line; line-height: 1.6;"></p>
+            </div>
+            <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button id="confirm-cancel-btn" class="btn btn-secondary">Cancelar</button>
+                <button id="confirm-ok-btn" class="btn btn-primary">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prompt Modal -->
+    <div id="prompt-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 id="prompt-title">Entrada</h2>
+            </div>
+            <div class="modal-body">
+                <p id="prompt-message" style="white-space: pre-line; line-height: 1.6; margin-bottom: 15px;"></p>
+                <input type="text" id="prompt-input" class="form-input" style="width: 100%; padding: 10px; background: var(--bg-dark); border: 1px solid var(--bg-light); border-radius: 8px; color: white; font-size: 1rem;">
+            </div>
+            <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button id="prompt-cancel-btn" class="btn btn-secondary">Cancelar</button>
+                <button id="prompt-ok-btn" class="btn btn-primary">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Modal -->
+    <div id="alert-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+              <link rel="stylesheet" href="css/style.css">  <h2 id="alert-title">Información</h2>
+            </div>
+            <div class="modal-body">
+                <p id="alert-message" style="white-space: pre-line; line-height: 1.6;"></p>
+            </div>
+            <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button id="alert-ok-btn" class="btn btn-primary">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loader Global -->
+    <div id="global-loader" class="loader-overlay" style="display: none;">
+        <div class="loader"></div>
+        <div class="loader-text" id="loader-text">Procesando...</div>
+        <div class="loader-subtext" id="loader-subtext"></div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/voice.js"></script>
+</body>
+</html>
+

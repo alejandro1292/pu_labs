@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transcripción en Tiempo Real - Vosk</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <a href="index.html" class="back-link">Menú Principal</a>
+    <div class="container">
+        <header>
+            <h1>Transcripción en Tiempo Real</h1>
+            <p class="subtitle">Servicio <a href="https://pypi.org/project/vosk/">Vosk</a> con streaming de audio por WebSocket</p>
+        </header>
+
+        <main>
+            <!-- Panel de Control -->
+            <section class="control-panel">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 30px;">
+                    <div style="flex: 1;">
+                        <h2>Control de Grabación</h2>
+                        
+                        <div class="status-group">
+                            <div class="status-item">
+                                <span class="status-label">Micrófono:</span>
+                                <span id="mic-status" class="status-badge status-inactive">Inactivo</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">WebSocket:</span>
+                                <span id="ws-status" class="status-badge status-disconnected">Desconectado</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Estado:</span>
+                                <span id="recording-status" class="status-badge">Listo</span>
+                            </div>
+                        </div>
+
+                        <div class="button-group">
+                            <button id="start-recording" class="btn btn-primary">
+                                <span class="btn-icon">🎙️</span> Iniciar Grabación
+                            </button>
+                            <button id="stop-recording" class="btn btn-secondary" disabled>
+                                <span class="btn-icon">⏹️</span> Detener
+                            </button>
+                            <button id="clear-transcription" class="btn btn-secondary">
+                                <span class="btn-icon">🗑️</span> Limpiar
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Visualización circular de audio -->
+                    <div class="audio-visualization-container">
+                        <h3 style="margin: 0 0 10px 0; text-align: center; color: var(--primary-color); font-size: 1rem;">Audio en Vivo</h3>
+                        <div style="position: relative;">
+                            <canvas id="audio-canvas" width="200" height="200"></canvas>
+                            <div id="audio-overlay" class="audio-overlay">
+                                <div id="current-transcription" class="detection-overlay-content">
+                                    <span class="detection-placeholder">Esperando...</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="text-align: center; margin-top: 10px; font-size: 0.85rem; color: var(--text-secondary);">
+                            <div id="audio-level">Nivel: 0%</div>
+                            <div id="audio-duration">Duración: 0.0s</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Panel de Transcripción -->
+            <section class="transcription-panel">
+                <h2>Transcripción</h2>
+                <div id="transcription-container" class="transcription-box">
+                    <p class="placeholder-text">La transcripción aparecerá aquí en tiempo real...</p>
+                </div>
+            </section>
+            <!-- Configuration modal trigger and placeholder (config modal defined below) -->
+            <section class="config-trigger-panel" style="margin-top: 8px;">
+                <button id="open-config" class="btn btn-secondary">⚙️ Configuración</button>
+            </section>
+        </main>
+    </div>
+
+    <!-- Configuration Modal -->
+    <div id="config-modal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
+        <div class="modal-backdrop" id="config-backdrop"></div>
+        <div class="modal-content" role="document">
+            <button id="config-close" class="modal-close" aria-label="Cerrar">✕</button>
+            <h2>Configuración</h2>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="language-select">Idioma:</label>
+                    <select id="language-select" class="form-control">
+                        <option value="es">Español</option>
+                        <option value="en">Inglés</option>
+                        <option value="fr">Francés</option>
+                        <option value="de">Alemán</option>
+                        <option value="it">Italiano</option>
+                        <option value="pt">Portugués</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="min-duration">Duración mínima (segundos):</label>
+                    <input type="number" id="min-duration" class="form-control" value="1" min="1" max="10" step="0.5">
+                </div>
+                <div class="form-group">
+                    <label for="ws-url">URL WebSocket:</label>
+                    <input type="text" id="ws-url" class="form-control" value="ws://localhost:8001/ws/transcribir">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/audio.js"></script>
+    <script src="js/vosk.js"></script>
+</body>
+</html>

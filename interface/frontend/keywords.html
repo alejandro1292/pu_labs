@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Entrenamiento - Keyword Spotting</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/keywords.css">
+</head>
+<body>
+    <div class="training-container">
+        <header>
+            <a href="index.html" class="back-link">Menú Principal</a>
+            <h1>🎓 Entrenamiento de Keywords</h1>
+            <p class="subtitle">
+                Gestiona y entrena modelos de detección de voz con Random Forest.<br>
+                <strong>Usa grabaciones reales</strong> para mejores resultados.<br>
+                También puedes generar muestras sintéticas con gTTS o edge-tts, y agregar variaciones y ruido para mayor realismo.
+            </p>
+        </header>
+
+        <section class="control-panel">
+            <h2 style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="section-title">Gestión de Keywords</span>
+                <button class="btn btn-secondary" onclick="handleTrainKeyword()">
+                    🤖 Entrenar Keywords (RF)
+                </button>
+            </h2>
+            
+            <div class="keyword-input-group">
+                <input type="text" id="new-keyword-input" class="keyword-input" placeholder="Nombre del nuevo keyword (ej: hola, start, stop)">
+                <button id="create-keyword-btn" class="btn btn-primary">
+                    ➕ Crear Keyword
+                </button>
+                
+                
+            </div>
+
+            <div id="keywords-container" class="keyword-grid">
+                <!-- Keywords se cargarán aquí dinámicamente -->
+            </div>
+        </section>
+    </div>
+
+    <!-- Modal de Grabación -->
+    <div id="recording-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🎤 Grabando: <span id="modal-keyword-name"></span></h2>
+                <button class="modal-close" id="close-modal-btn">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="recording-visualization">
+                    <!-- Círculo de visualización con canvas -->
+                    <div class="recording-circle-container">
+                        <canvas id="recording-waveform-canvas" class="waveform-canvas"></canvas>
+                        <div id="modal-countdown" class="countdown-display"></div>
+                        <svg class="progress-ring" width="280" height="280">
+                            <circle class="progress-ring-bg" cx="140" cy="140" r="130" />
+                            <circle id="progress-ring-circle" class="progress-ring-circle" cx="140" cy="140" r="130" />
+                        </svg>
+                    </div>
+                    <!-- Indicador de progreso circular debajo -->
+                    <div class="time-indicator">
+                        <span id="recording-time-left">2.0s</span>
+                    </div>
+                </div>
+                <div id="modal-status" class="recording-status">Listo para grabar</div>
+                <div id="modal-instructions" class="recording-instructions">Presiona "Iniciar" y di la palabra cuando se indique</div>
+                <div class="modal-actions">
+                    <button id="modal-start-btn" class="btn btn-primary">🔴 Iniciar Grabación</button>
+                    <button id="modal-stop-btn" class="btn btn-danger" disabled>⏹️ Detener</button>
+                </div>
+                <p id="modal-samples-count" class="samples-count">Muestras grabadas: 0</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Visualización del Modelo -->
+    <div id="model-viz-modal" class="modal model-viz-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📊 Modelo: <span id="model-keyword-name"></span></h2>
+                <button class="modal-close" id="close-model-modal-btn">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="model-stats-grid">
+                    <div class="stat-card">
+                        <h4>Templates</h4>
+                        <div class="value" id="model-n-templates">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Longitud Media</h4>
+                        <div class="value" id="model-mean-length">-</div>
+                        <span class="unit">frames</span>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Desviación</h4>
+                        <div class="value" id="model-std-length">-</div>
+                        <span class="unit">frames</span>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Score Intra-Clase</h4>
+                        <div class="value" id="model-intra-score">-</div>
+                    </div>
+                </div>
+                
+                <h3 style="margin-top: 25px; color: var(--primary-color);">🎯 Centroide Temporal</h3>
+                <p style="color: var(--text-secondary); font-size: 0.9rem;">
+                    Representación promedio de todos los templates (MFCC features)
+                </p>
+                <canvas id="centroid-canvas"></canvas>
+                
+                <h3 style="margin-top: 25px; color: var(--primary-color);">⚙️ Umbrales de Detección</h3>
+                <div style="margin: 15px 0;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                        <span style="color: var(--success-color);">Min: <span id="threshold-min-val">-</span></span>
+                        <span style="color: var(--error-color);">Max: <span id="threshold-max-val">-</span></span>
+                    </div>
+                    <div class="threshold-bar">
+                        <div class="threshold-fill" id="threshold-fill"></div>
+                        <div class="threshold-marker" id="threshold-min-marker"></div>
+                        <div class="threshold-marker" id="threshold-max-marker"></div>
+                    </div>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 10px;">
+                        ✅ Scores menores a <strong>Min</strong> = Detección positiva<br>
+                        ⚠️ Scores entre <strong>Min-Max</strong> = Zona de decisión<br>
+                        ❌ Scores mayores a <strong>Max</strong> = Rechazo
+                    </p>
+                </div>
+                
+                <div style="margin-top: 20px; padding: 15px; background: var(--bg-dark); border-radius: 8px; border-left: 4px solid var(--primary-color);">
+                    <h4 style="margin: 0 0 10px 0; color: var(--primary-color);">📈 Información del Modelo</h4>
+                    <p style="margin: 5px 0; color: var(--text-secondary); font-size: 0.9rem;">
+                        <strong>Centroide:</strong> <span id="centroid-info">-</span><br>
+                        <strong>Variabilidad:</strong> Score intra-clase indica qué tan similares son los templates entre sí<br>
+                        <strong>Eficiencia:</strong> 1 comparación DTW vs N templates (20x más rápido)
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loader Global -->
+    <div id="global-loader" class="loader-overlay" style="display: none;">
+        <div class="loader"></div>
+        <div class="loader-text" id="loader-text">Procesando...</div>
+        <div class="loader-subtext" id="loader-subtext"></div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- Confirm Modal -->
+    <div id="confirm-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 id="confirm-title">Confirmar</h2>
+            </div>
+            <div class="modal-body">
+                <p id="confirm-message" style="white-space: pre-line; line-height: 1.6;"></p>
+            </div>
+            <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button id="confirm-cancel-btn" class="btn btn-secondary">Cancelar</button>
+                <button id="confirm-ok-btn" class="btn btn-primary">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prompt Modal -->
+    <div id="prompt-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 id="prompt-title">Entrada</h2>
+            </div>
+            <div class="modal-body">
+                <p id="prompt-message" style="white-space: pre-line; line-height: 1.6; margin-bottom: 15px;"></p>
+                <input type="text" id="prompt-input" class="form-input" style="width: 100%; padding: 10px; background: var(--bg-dark); border: 1px solid var(--bg-light); border-radius: 8px; color: white; font-size: 1rem;">
+            </div>
+            <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button id="prompt-cancel-btn" class="btn btn-secondary">Cancelar</button>
+                <button id="prompt-ok-btn" class="btn btn-primary">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Modal -->
+    <div id="alert-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 id="alert-title">Información</h2>
+            </div>
+            <div class="modal-body">
+                <p id="alert-message" style="white-space: pre-line; line-height: 1.6;"></p>
+            </div>
+            <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button id="alert-ok-btn" class="btn btn-primary">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Training Results Modal -->
+    <div id="training-results-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h2>✅ Entrenamiento Completado</h2>
+                <button class="modal-close" id="close-training-results-btn">×</button>
+            </div>
+            <div class="modal-body">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px;">
+                    <div class="stat-card">
+                        <h4>Accuracy</h4>
+                        <div class="value" id="tr-accuracy">-</div>
+                        <span class="unit">%</span>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Precision</h4>
+                        <div class="value" id="tr-precision">-</div>
+                        <span class="unit">%</span>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Recall</h4>
+                        <div class="value" id="tr-recall">-</div>
+                        <span class="unit">%</span>
+                    </div>
+                    <div class="stat-card">
+                        <h4>F1-Score</h4>
+                        <div class="value" id="tr-f1">-</div>
+                        <span class="unit">%</span>
+                    </div>
+                </div>
+                
+                <h3 style="margin-top: 25px; color: var(--primary-color);">📊 Matriz de Confusión</h3>
+                <div id="confusion-matrix-container" style="margin: 20px 0;">
+                    <canvas id="confusion-matrix-canvas"></canvas>
+                </div>
+                
+                <h3 style="margin-top: 25px; color: var(--primary-color);">🔄 Cross-Validation</h3>
+                <div style="display: flex; gap: 15px; margin: 15px 0;">
+                    <div class="stat-card" style="flex: 1;">
+                        <h4>Mean CV Score</h4>
+                        <div class="value" id="tr-cv-mean">-</div>
+                        <span class="unit">%</span>
+                    </div>
+                    <div class="stat-card" style="flex: 1;">
+                        <h4>Std Deviation</h4>
+                        <div class="value" id="tr-cv-std">-</div>
+                        <span class="unit">±%</span>
+                    </div>
+                </div>
+                
+                <h3 style="margin-top: 25px; color: var(--primary-color);">📈 Distribución de Muestras por Keyword</h3>
+                <div id="samples-distribution-container" style="margin: 20px 0;">
+                    <canvas id="samples-distribution-canvas"></canvas>
+                </div>
+                
+                <div style="margin-top: 20px; padding: 15px; background: var(--bg-dark); border-radius: 8px; border-left: 4px solid var(--success-color);">
+                    <p style="margin: 5px 0; color: var(--text-secondary); font-size: 0.9rem;">
+                        <strong>📁 Modelo guardado:</strong> <span id="tr-model-path">-</span><br>
+                        <strong>🔢 Keywords:</strong> <span id="tr-keywords">-</span><br>
+                        <strong>📊 Total muestras:</strong> <span id="tr-total-samples">-</span>
+                    </p>
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button id="training-results-ok-btn" class="btn btn-primary">Entendido</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/keywords.js"></script>
+</body>
+</html>
+

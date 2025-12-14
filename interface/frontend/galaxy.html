@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galaxy Voice Commander - Juego de Naves</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="galaxy-game" style="overflow: hidden; height: 100vh; margin: 0; padding: 0;">
+    <a href="index.html" class="back-link">Menú Principal</a>
+    
+    <div class="game-container">
+        <div class="game-header">
+            <h1>🚀 Galaxy Voice Commander</h1>
+            <p class="subtitle">Controla tu nave con comandos de voz</p>
+        </div>
+
+        <div class="game-layout">
+            <!-- Panel Izquierdo: Audio y Controles -->
+            <div class="left-panel">
+                <!-- Audio Visualizer -->
+                <div class="panel-box">
+                    <div class="panel-title">🎤 Audio</div>
+                    <div class="audio-controls">
+                        <div class="visualizer-container">
+                            <canvas id="audio-visualizer" width="100" height="100"></canvas>
+                            <div id="audio-keyword-overlay">
+                                <div id="audio-keyword-text"></div>
+                            </div>
+                            <div id="mic-status-badge">
+                                <span>🎤</span>
+                            </div>
+                        </div>
+                        <div class="status-text" id="audio-status">🎤 Inactivo</div>
+                    </div>
+                </div>
+
+                <!-- Estado de Conexión -->
+                <div class="panel-box">
+                    <div class="ws-status">
+                        <div id="ws-indicator" class="ws-indicator"></div>
+                        <span id="ws-status-text">Desconectado</span>
+                    </div>
+                </div>
+
+                <!-- Controles de Voz -->
+                <div class="panel-box" style="flex: 1; display: flex; flex-direction: column;">
+                    <div class="panel-title">🎮 Controles</div>
+                    <div class="game-controls" style="flex: 1;">
+                        <div class="control-item" id="control-up">
+                            <div class="control-header">
+                                <div class="control-label">🔼</div>
+                                <div class="control-title">Subir</div>
+                            </div>
+                            <select id="up-keyword">
+                                <option value="">Selecciona palabra...</option>
+                            </select>
+                        </div>
+                        <div class="control-item" id="control-down">
+                            <div class="control-header">
+                                <div class="control-label">🔽</div>
+                                <div class="control-title">Bajar</div>
+                            </div>
+                            <select id="down-keyword">
+                                <option value="">Selecciona palabra...</option>
+                            </select>
+                        </div>
+                        <div class="control-item" id="control-bomb">
+                            <div class="control-header">
+                                <div class="control-label">💣</div>
+                                <div class="control-title">Bomba</div>
+                            </div>
+                            <select id="bomb-keyword">
+                                <option value="">Selecciona palabra...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="action-buttons">
+                        <button class="btn btn-secondary" id="pause-btn" style="display: none;">⏸️ Pausa</button>
+                        <button class="btn btn-secondary" id="test-btn">🎮 Probar</button>
+                        <button class="btn btn-primary" id="start-btn">🚀 Iniciar</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Canvas del Juego (Centro) -->
+            <div class="game-canvas-container">
+                <canvas id="game-canvas" width="800" height="600"></canvas>
+
+                <!-- Overlay de Game Over -->
+                <div class="game-overlay hidden" id="gameover-overlay">
+                    <div class="game-over-panel">
+                        <h2>GAME OVER</h2>
+                        <p style="color: var(--text-secondary); font-size: 1.2rem;">Puntuación Final</p>
+                        <div class="final-score" id="final-score">0</div>
+                        <button class="btn btn-primary" id="restart-btn" style="width: 100%;">🔄 Jugar de Nuevo</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel Derecho: Estadísticas -->
+            <div class="right-panel">
+                <!-- Puntuación -->
+                <div class="panel-box">
+                    <div class="stat-item">
+                        <div class="stat-label">Puntos</div>
+                        <div class="stat-value" id="score-display">0</div>
+                    </div>
+                </div>
+
+                <!-- Vidas -->
+                <div class="panel-box">
+                    <div class="stat-item">
+                        <div class="stat-label">Vidas</div>
+                        <div class="stat-value" id="lives-display">5</div>
+                        <div class="lives-display" id="lives-hearts"></div>
+                    </div>
+                </div>
+
+                <!-- Bombas -->
+                <div class="panel-box">
+                    <div class="stat-item">
+                        <div class="stat-label">Bombas</div>
+                        <div class="bombs-display" id="bombs-display">
+                            <span class="bomb-icon">💣</span>
+                            <span class="bomb-icon">💣</span>
+                            <span class="bomb-icon">💣</span>
+                            <span class="bomb-icon">💣</span>
+                            <span class="bomb-icon">💣</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Nivel y Enemigos -->
+                <div class="panel-box">
+                    <div class="stat-item" style="margin-bottom: 0;">
+                        <div class="stat-label">Nivel</div>
+                        <div class="stat-value" id="level-display">1</div>
+                    </div>
+                </div>
+
+                <div class="panel-box">
+                    <div class="stat-item" style="margin-bottom: 0;">
+                        <div class="stat-label">Enemigos</div>
+                        <div class="stat-value" id="enemies-display">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <script src="js/audio.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/galaxy.js"></script>
+</body>
+</html>
