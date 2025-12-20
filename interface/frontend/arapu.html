@@ -1,17 +1,19 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Galaxy Voice Commander - Juego de Naves</title>
+    <title>AraPu</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
+
 <body class="galaxy-game" style="overflow: hidden; height: 100vh; margin: 0; padding: 0;">
     <a href="index.html" class="back-link">Menú Principal</a>
-    
+
     <div class="game-container">
         <div class="game-header">
-            <h1>🚀 Galaxy Voice Commander</h1>
+            <h1>🚀 AraPu</h1>
             <p class="subtitle">Controla tu nave con comandos de voz</p>
         </div>
 
@@ -20,7 +22,15 @@
             <div class="left-panel">
                 <!-- Audio Visualizer -->
                 <div class="panel-box">
-                    <div class="panel-title">🎤 Audio</div>
+                    <div class="panel-title"
+                        style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>🎤 Audio</span>
+                        <select id="classifier-select" class="form-select"
+                            style="font-size: 0.7rem; padding: 2px 5px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: white; cursor: pointer;">
+                            <option value="rf">RF</option>
+                            <option value="fw">FW</option>
+                        </select>
+                    </div>
                     <div class="audio-controls">
                         <div class="visualizer-container">
                             <canvas id="audio-visualizer" width="100" height="100"></canvas>
@@ -154,6 +164,7 @@
 
     <script src="js/audio.js"></script>
     <script src="js/utils.js"></script>
-    <script src="js/galaxy.js"></script>
+    <script src="js/arapu.js"></script>
 </body>
+
 </html>

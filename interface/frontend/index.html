@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PuLabs</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
-<body style="display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box;">
+
+<body
+    style="display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box;">
     <div class="menu-container">
         <div class="menu-header">
             <h1 style="cursor: pointer;" onclick="openModal()">🎙️ PuLabs</h1>
@@ -33,18 +36,18 @@
             </a>
 
             <!-- Galaxy Game -->
-            <a href="galaxy.html" class="menu-card">
+            <a href="arapu.html" class="menu-card">
                 <span class="menu-card-icon">🚀</span>
-                <h2 class="menu-card-title">Galaxy Commander</h2>
+                <h2 class="menu-card-title">AraPu</h2>
                 <p class="menu-card-description">
                     Juega controlando una nave espacial con tu voz
                 </p>
             </a>
 
             <!-- Platform Game -->
-            <a href="platform.html" class="menu-card">
+            <a href="popu.html" class="menu-card">
                 <span class="menu-card-icon">🟦</span>
-                <h2 class="menu-card-title">Voice Jump</h2>
+                <h2 class="menu-card-title">PoPu</h2>
                 <p class="menu-card-description">
                     Salta obstáculos con tu voz en este juego de plataformas
                 </p>
@@ -75,15 +78,26 @@
                 <button class="modal-close" id="close-modal-btn">×</button>
             </div>
             <div class="modal-body" role="document">
-                <p>PuLabs es un laboratorio de audio experimental enfocado en la exploración, análisis y creación de experiencias interactivas basadas en sonido. El nombre nace de la combinación de “pu”, que en guaraní significa sonido, y “labs”, abreviatura de laboratorio, reflejando su espíritu de investigación y prueba constante.</p>
+                <p>PuLabs es un laboratorio de audio experimental enfocado en la exploración, análisis y creación de
+                    experiencias interactivas basadas en sonido. El nombre nace de la combinación de “pu”, que en
+                    guaraní significa sonido, y “labs”, abreviatura de laboratorio, reflejando su espíritu de
+                    investigación y prueba constante.</p>
 
-                <p>El proyecto utiliza el micrófono como herramienta principal para experimentar y validar conceptos relacionados con el audio en tiempo real. Entre sus líneas de trabajo se encuentra la identificación de patrones sonoros mediante algoritmos de Machine Learning, especialmente Random Forest, entrenando el sistema para reconocer palabras clave (keywords) y distintos comportamientos acústicos.</p>
+                <p>El proyecto utiliza el micrófono como herramienta principal para experimentar y validar conceptos
+                    relacionados con el audio en tiempo real. Entre sus líneas de trabajo se encuentra la identificación
+                    de patrones sonoros mediante algoritmos de Machine Learning, especialmente Random Forest, entrenando
+                    el sistema para reconocer palabras clave (keywords) y distintos comportamientos acústicos.</p>
 
-                <p>PuLabs también desarrolla juegos y experiencias interactivas que responden a comandos de voz específicos o a características como la longitud e intensidad del audio capturado por el micrófono, integrando el sonido como mecánica central de juego.</p>
+                <p>PuLabs también desarrolla juegos y experiencias interactivas que responden a comandos de voz
+                    específicos o a características como la longitud e intensidad del audio capturado por el micrófono,
+                    integrando el sonido como mecánica central de juego.</p>
 
-                <p>Además, el laboratorio incorpora un transcriptor de voz a texto en tiempo real basado en Vosk, permitiendo transformar el audio capturado en texto de forma eficiente y local, ampliando las posibilidades de análisis, accesibilidad e interacción.</p>
+                <p>Además, el laboratorio incorpora un transcriptor de voz a texto en tiempo real basado en Vosk,
+                    permitiendo transformar el audio capturado en texto de forma eficiente y local, ampliando las
+                    posibilidades de análisis, accesibilidad e interacción.</p>
 
-                <p>PuLabs es, en esencia, un espacio para experimentar con el sonido, combinar creatividad y tecnología, y explorar nuevas formas de interacción a través del audio.</p>
+                <p>PuLabs es, en esencia, un espacio para experimentar con el sonido, combinar creatividad y tecnología,
+                    y explorar nuevas formas de interacción a través del audio.</p>
             </div>
         </div>
     </div>
@@ -92,21 +106,21 @@
         const modal = document.getElementById('about-modal');
         const closeBtn = document.getElementById('close-modal-btn');
 
-        function openModal(){
+        function openModal() {
             closeBtn.focus();
             document.body.style.overflow = 'hidden';
             modal.style.display = 'flex';
         }
-        function closeModal(){
+        function closeModal() {
             modal.style.display = 'none';
-            modal.setAttribute('aria-hidden','true');
+            modal.setAttribute('aria-hidden', 'true');
             document.body.style.overflow = '';
         }
 
-        if(closeBtn){ closeBtn.addEventListener('click', closeModal); }
-        
-        document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && modal.getAttribute('aria-hidden')==='false'){ closeModal(); } });
+        if (closeBtn) { closeBtn.addEventListener('click', closeModal); }
+
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modal.getAttribute('aria-hidden') === 'false') { closeModal(); } });
     </script>
 </body>
-</html>
 
+</html>

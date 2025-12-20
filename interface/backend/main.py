@@ -11,9 +11,12 @@ import json
 from pathlib import Path
 from typing import Dict, Optional
 import logging
+import os
 from .rf_classifier import RandomForestKeywordClassifier
+from .fw_classifier import FWKeywordClassifier
 from .training_api import router as training_router
 from .rf_api import router as rf_router
+from .fw_api import router as fw_router
 from . import database as db
 import soundfile as sf
 import time
@@ -40,33 +43,59 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
-    """Inicializar base de datos y cargar modelo Random Forest."""
-    global rf_classifier
-    
+    """Inicializar base de datos y cargar el modelo configurado por CLASSIFIER_TYPE."""
+    global rf_classifier, fw_classifier, active_classifier, classifier_type
+
     await db.init_db()
     logger.info("Database initialized")
-    
-    # Intentar cargar modelo Random Forest
-    rf_model_path = Path("backend/models/rf_classifier.pkl")
-    if rf_model_path.exists():
-        try:
-            rf_classifier = RandomForestKeywordClassifier.load(rf_model_path)
-            logger.info(f"✓ Modelo Random Forest cargado")
-            logger.info(f"   Keywords: {', '.join(rf_classifier.keywords)}")
-            logger.info(f"   Test Accuracy: {rf_classifier.training_stats.get('test_accuracy', 0):.2%}")
-        except Exception as e:
-            logger.error(f"❌ Error cargando modelo Random Forest: {e}")
-            rf_classifier = None
+
+    # Determinar tipo de clasificador por variable de entorno
+    classifier_type = os.environ.get('CLASSIFIER_TYPE', 'rf').lower()
+    logger.info(f"Classifier type set to: {classifier_type}")
+
+    # Intentar cargar modelo correspondiente
+    if classifier_type == 'fw':
+        fw_model_path = Path("backend/models/fw_classifier.pkl")
+        if fw_model_path.exists():
+            try:
+                fw_classifier = FWKeywordClassifier.load(fw_model_path)
+                active_classifier = fw_classifier
+                logger.info(f"✓ Modelo FW (Fourier+Wavelet) cargado")
+                logger.info(f"   Keywords: {', '.join(fw_classifier.keywords)}")
+                logger.info(f"   Test Accuracy: {fw_classifier.training_stats.get('test_accuracy', 0):.2%}")
+            except Exception as e:
+                logger.error(f"❌ Error cargando modelo FW: {e}")
+                fw_classifier = None
+                active_classifier = None
+        else:
+            logger.warning("⚠️  No hay modelo FW entrenado")
+            fw_classifier = None
+            active_classifier = None
     else:
-        logger.warning("⚠️  No hay modelo Random Forest entrenado")
-        logger.info("   Entrenar con: python train_rf.py")
-        rf_classifier = None
+        rf_model_path = Path("backend/models/rf_classifier.pkl")
+        if rf_model_path.exists():
+            try:
+                rf_classifier = RandomForestKeywordClassifier.load(rf_model_path)
+                active_classifier = rf_classifier
+                logger.info(f"✓ Modelo Random Forest cargado")
+                logger.info(f"   Keywords: {', '.join(rf_classifier.keywords)}")
+                logger.info(f"   Test Accuracy: {rf_classifier.training_stats.get('test_accuracy', 0):.2%}")
+            except Exception as e:
+                logger.error(f"❌ Error cargando modelo Random Forest: {e}")
+                rf_classifier = None
+                active_classifier = None
+        else:
+            logger.warning("⚠️  No hay modelo Random Forest entrenado")
+            logger.info("   Entrenar con: python train_rf.py")
+            rf_classifier = None
+            active_classifier = None
 
 
 # Incluir router de training
 app.include_router(training_router)
 # Incluir router de Random Forest
 app.include_router(rf_router)
+app.include_router(fw_router)
 
 # Montar directorio de recordings como estático para reproducción
 from pathlib import Path
@@ -77,8 +106,13 @@ app.mount("/recordings", StaticFiles(directory=str(recordings_path)), name="reco
 # Configuración global
 SAMPLE_RATE = 16000
 
-# Modelo Random Forest (se carga en startup)
+# Modelos cargados (p. ej. por endpoints de entrenamiento)
 rf_classifier: Optional[RandomForestKeywordClassifier] = None
+fw_classifier: Optional[FWKeywordClassifier] = None
+
+# Clasificador activo según variable de entorno (rf|fw)
+active_classifier = None
+classifier_type = os.environ.get('CLASSIFIER_TYPE', 'rf').lower()
 
 # Conexiones activas
 active_processors: Dict[int, 'AudioStreamProcessor'] = {}
@@ -108,27 +142,49 @@ async def broadcast_detection(keyword: str, confidence: float):
             del game_connections[client_id]
 
 
-def reload_rf_model():
+def reload_model():
     """
-    Recarga el modelo Random Forest desde disco.
-    Útil cuando se entrena un nuevo modelo sin reiniciar el servidor.
+    Recarga el modelo configurado (RF o FW) desde disco.
+    Devuelve True si la recarga fue exitosa.
     """
-    global rf_classifier
-    
-    rf_model_path = Path("backend/models/rf_classifier.pkl")
-    if rf_model_path.exists():
-        try:
-            rf_classifier = RandomForestKeywordClassifier.load(rf_model_path)
-            logger.info(f"✓ Modelo Random Forest recargado")
-            logger.info(f"   Keywords: {', '.join(rf_classifier.keywords)}")
-            return True
-        except Exception as e:
-            logger.error(f"❌ Error recargando modelo: {e}")
+    global rf_classifier, fw_classifier, active_classifier, classifier_type
+
+    classifier_type = os.environ.get('CLASSIFIER_TYPE', classifier_type).lower()
+
+    if classifier_type == 'fw':
+        fw_model_path = Path("backend/models/fw_classifier.pkl")
+        if fw_model_path.exists():
+            try:
+                fw_classifier = FWKeywordClassifier.load(fw_model_path)
+                active_classifier = fw_classifier
+                logger.info(f"✓ Modelo FW recargado")
+                logger.info(f"   Keywords: {', '.join(fw_classifier.keywords)}")
+                return True
+            except Exception as e:
+                logger.error(f"❌ Error recargando modelo FW: {e}")
+                return False
+        else:
+            logger.warning("⚠️  No hay modelo FW para recargar")
+            fw_classifier = None
+            active_classifier = None
             return False
     else:
-        logger.warning("⚠️  No hay modelo para recargar")
-        rf_classifier = None
-        return False
+        rf_model_path = Path("backend/models/rf_classifier.pkl")
+        if rf_model_path.exists():
+            try:
+                rf_classifier = RandomForestKeywordClassifier.load(rf_model_path)
+                active_classifier = rf_classifier
+                logger.info(f"✓ Modelo Random Forest recargado")
+                logger.info(f"   Keywords: {', '.join(rf_classifier.keywords)}")
+                return True
+            except Exception as e:
+                logger.error(f"❌ Error recargando modelo RF: {e}")
+                return False
+        else:
+            logger.warning("⚠️  No hay modelo RF para recargar")
+            rf_classifier = None
+            active_classifier = None
+            return False
 
 
 def save_audio_segment(audio_data: np.ndarray, prefix: str = "segment"):
@@ -184,8 +240,8 @@ class AudioStreamProcessor:
         }
         
         # Verificar que hay modelo cargado
-        if rf_classifier is None:
-            logger.warning("⚠️  No hay modelo Random Forest cargado")
+        if active_classifier is None:
+            logger.warning("⚠️  No hay modelo cargado")
             return result
         
         # Verificar cooldown
@@ -203,8 +259,8 @@ class AudioStreamProcessor:
         
         # Predecir con Random Forest
         try:
-            logger.info(f"🔍 Clasificando con Random Forest...")
-            prediction = rf_classifier.predict_with_details(audio_data)
+            logger.info(f"🔍 Clasificando con '{classifier_type}'...")
+            prediction = active_classifier.predict_with_details(audio_data)
             
             keyword = prediction['predicted_keyword']
             confidence = prediction['confidence']
@@ -214,7 +270,7 @@ class AudioStreamProcessor:
             logger.debug(f"   Todas las probabilidades: {all_proba}")
             
             # Umbral de confianza (ajustable)
-            confidence_threshold = 0.35
+            confidence_threshold = 0.50
             
             if confidence >= confidence_threshold:
                 result["keyword"] = keyword
@@ -226,7 +282,10 @@ class AudioStreamProcessor:
                 
                 logger.info(f"✅ ¡DETECTADO! Keyword='{keyword}' Confianza={confidence:.2%}")
             else:
-                logger.info(f"❌ Confianza insuficiente ({confidence:.2%} < {confidence_threshold:.0%})")
+                result["keyword"] = "?"
+                result["confidence"] = confidence
+                result["action"] = "rejected"
+                logger.info(f"❌ Confianza insuficiente ({confidence:.2%} < {confidence_threshold:.0%}) -> RECHAZADO")
         
         except Exception as e:
             logger.error(f"❌ Error en predicción: {e}", exc_info=True)
@@ -242,33 +301,33 @@ class AudioStreamProcessor:
 @app.get("/")
 async def root():
     """Endpoint raíz con información de la API."""
-    keywords = rf_classifier.keywords if rf_classifier else []
-    is_ready = rf_classifier is not None and rf_classifier.is_trained
+    keywords = active_classifier.keywords if active_classifier else []
+    is_ready = active_classifier is not None and active_classifier.is_trained
     
     return {
-        "name": "Keyword Spotting API - Random Forest",
+        "name": f"Keyword Spotting API - {classifier_type.upper()}",
         "version": "2.0.0",
         "keywords": keywords,
         "sample_rate": SAMPLE_RATE,
-        "model_loaded": rf_classifier is not None,
+        "model_loaded": active_classifier is not None,
         "model_ready": is_ready,
-        "test_accuracy": rf_classifier.training_stats.get('test_accuracy', 0) if rf_classifier else 0
+        "test_accuracy": active_classifier.training_stats.get('test_accuracy', 0) if active_classifier else 0
     }
 
 
 @app.get("/status")
 async def status():
     """Status del sistema."""
-    keywords = rf_classifier.keywords if rf_classifier else []
-    is_ready = rf_classifier is not None and rf_classifier.is_trained
+    keywords = active_classifier.keywords if active_classifier else []
+    is_ready = active_classifier is not None and active_classifier.is_trained
     
     return {
         "status": "online",
         "keywords": keywords,
-        "model_loaded": rf_classifier is not None,
+        "model_loaded": active_classifier is not None,
         "model_ready": is_ready,
         "active_connections": len(active_processors),
-        "classifier_type": "Random Forest"
+        "classifier_type": classifier_type
     }
 
 
@@ -287,10 +346,10 @@ async def websocket_game_endpoint(websocket: WebSocket):
     logger.info(f"Cliente juego {client_id} conectado (total: {len(game_connections)})")
     
     # Recargar modelo para obtener keywords actualizados
-    reload_rf_model()
+    reload_model()
     
     # Verificar que hay modelo
-    keywords = rf_classifier.keywords if rf_classifier else []
+    keywords = active_classifier.keywords if active_classifier else []
     
     # Enviar lista de keywords
     await websocket.send_json({
@@ -345,16 +404,16 @@ async def websocket_audio_endpoint(websocket: WebSocket):
     logger.info(f"Cliente {client_id} conectado")
     
     # Recargar modelo para obtener keywords actualizados
-    reload_rf_model()
+    reload_model()
     
     # Verificar que hay modelo
-    keywords = rf_classifier.keywords if rf_classifier else []
-    model_ready = rf_classifier is not None and rf_classifier.is_trained
+    keywords = active_classifier.keywords if active_classifier else []
+    model_ready = active_classifier is not None and active_classifier.is_trained
     
     # Enviar mensaje de bienvenida
     await websocket.send_json({
         "type": "connected",
-        "message": "Conectado al servidor de keyword spotting (Random Forest)",
+        "message": f"Conectado al servidor de keyword spotting ({classifier_type.upper()})",
         "keywords": keywords,
         "sample_rate": SAMPLE_RATE,
         "model_ready": model_ready
@@ -376,8 +435,8 @@ async def websocket_audio_endpoint(websocket: WebSocket):
                 # Procesar audio
                 result = processor.process_audio_chunk(audio_array)
                 
-                # Si hay detección, enviar al cliente
-                if result["action"] == "detected":
+                # Si hay detección o rechazo, enviar al cliente
+                if result["action"] in ["detected", "rejected"]:
                     # Enviar al cliente que está grabando
                     await websocket.send_json({
                         "type": "detection",
@@ -386,8 +445,9 @@ async def websocket_audio_endpoint(websocket: WebSocket):
                         "timestamp": len(audio_array)
                     })
                     
-                    # Broadcast a conexiones de juego
-                    await broadcast_detection(result["keyword"], result["confidence"])
+                    # Solo broadcast a conexiones de juego si fue detectado (no rechazado)
+                    if result["action"] == "detected":
+                        await broadcast_detection(result["keyword"], result["confidence"])
             
             elif "text" in data:
                 # Mensaje de texto (puede ser configuración o comando)

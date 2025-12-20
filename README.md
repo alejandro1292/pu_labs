@@ -4,9 +4,9 @@
 
 PuLabs es un laboratorio de audio experimental enfocado en la exploración, análisis y creación de experiencias interactivas basadas en sonido. El nombre nace de la combinación de "pu", que en guaraní significa sonido, y "labs", abreviatura de laboratorio, reflejando su espíritu de investigación y prueba constante.
 
-El proyecto utiliza el micrófono como herramienta principal para experimentar y validar conceptos relacionados con el audio en tiempo real. Entre sus líneas de trabajo se encuentra la identificación de patrones sonoros mediante algoritmos de Machine Learning, especialmente Random Forest, entrenando el sistema para reconocer palabras clave (keywords) y distintos comportamientos acústicos.
+El proyecto utiliza el micrófono como herramienta principal para experimentar y validar conceptos relacionados con el audio en tiempo real. Entre sus líneas de trabajo se encuentra la identificación de patrones sonoros mediante algoritmos de Machine Learning (Random Forest, Nearest Centroid) y técnicas avanzadas de procesamiento de señales como la Transformada de Fourier (FFT) y la Transformada Wavelet, entrenando el sistema para reconocer palabras clave (keywords) y distintos comportamientos acústicos.
 
-PuLabs también desarrolla juegos y experiencias interactivas que responden a comandos de voz específicos o a características como la longitud e intensidad del audio capturado por el micrófono, integrando el sonido como mecánica central de juego.
+PuLabs también desarrolla juegos y experiencias interactivas que responden a comandos de voz específicos o a características como la longitud e intensidad del audio capturado por el micrófono, integrando el sonido como mecánica central de juego. Además, incorpora visualizaciones en tiempo real como espectrogramas para un análisis profundo de la señal.
 
 Además, el laboratorio incorpora un transcriptor de voz a texto en tiempo real basado en Vosk, permitiendo transformar el audio capturado en texto de forma eficiente y local, ampliando las posibilidades de análisis, accesibilidad e interacción.
 
@@ -41,13 +41,15 @@ El proyecto está organizado en los siguientes directorios y archivos principale
     - **`main.py`**: Punto de entrada del servidor FastAPI.
     - **`rf_api.py`**: API para el modelo Random Forest.
     - **`rf_classifier.py`**: Implementación del clasificador Random Forest.
+    - **`fw_api.py`**: API para el modelo híbrido Fourier+Wavelet.
+    - **`fw_classifier.py`**: Implementación del clasificador FW con soporte para FFT y Producto Interno.
     - **`synthetic_voice.py`**: Módulo para generación de voz sintética.
     - **`training_api.py`**: API para entrenamiento de modelos.
     - **`database.py`**: Gestión de base de datos.
     - **`data/`**: Almacenamiento de datos de entrenamiento.
     - **`models/`**: Modelos entrenados y segmentos de debug.
   - **`frontend/`**: Archivos estáticos de la interfaz web.
-    - Páginas HTML: `index.html`, `keywords.html`, `voice.html`, `galaxy.html`, `platform.html`, `vosk.html`.
+    - Páginas HTML: `index.html`, `keywords.html`, `voice.html`, `arapu.html`, `popu.html`, `vosk.html`.
     - **`css/`**: Hojas de estilo.
     - **`js/`**: Scripts JavaScript para la lógica del frontend.
 
@@ -67,8 +69,21 @@ El proyecto está organizado en los siguientes directorios y archivos principale
     - **`audio_stream.py`**: Manejo de streams de audio.
     - **`utils.py`**: Utilidades.
 
-## Random Forest
-Random Forest es un algoritmo de Machine Learning utilizado para la clasificación de comandos de voz. El sistema entrena modelos basados en características extraídas del audio, como MFCC (Mel-Frequency Cepstral Coefficients), para reconocer palabras clave específicas. Esto permite una identificación precisa de comandos de voz en tiempo real, integrándose en juegos y aplicaciones interactivas.
+## Clasificación de Keywords
+
+PuLabs implementa múltiples estrategias para el reconocimiento de comandos de voz:
+
+### Random Forest
+Algoritmo clásico utilizado para la clasificación basada en coeficientes MFCC (Mel-Frequency Cepstral Coefficients). Es robusto y eficaz para una amplia variedad de keywords.
+
+### FWClassifier (Fourier + Wavelet)
+Un sistema híbrido avanzado que combina:
+- **Análisis FFT (Fourier)**: Extrae características de magnitud de la STFT agrupadas en bandas de frecuencia, permitiendo identificar patrones espectrales precisos.
+- **Transformada Wavelet**: Captura características temporales y frecuenciales multiescala, ideal para transitorios y variaciones sutiles en la voz.
+- **Producto Interno (Fast-Path)**: Implementa una detección ultra-rápida basada en la similitud de coseno con los centroides de las clases. Si la coincidencia es clara (score > 0.96), el sistema retorna el resultado instantáneamente sin pasar por métodos más complejos.
+- **Espectrogramas Promediados**: Genera una "firma espectral" representativa promediando las magnitudes STFT de todas las muestras de un keyword. Esto permite visualizar el patrón acústico común y filtrar ruidos aleatorios.
+- **Estadísticas Detalladas por Keyword**: Proporciona métricas reales en la interfaz, incluyendo el número de muestras, la duración media de los audios, la desviación estándar y el score intra-clase (variabilidad interna).
+- **Visualización de Centroides (Heatmap)**: Representación visual de los centroides del modelo en una matriz de 3 segmentos temporales por 64 bandas de frecuencia, facilitando la comprensión de lo que el modelo ha "aprendido".
 
 ## Servicio Vosk
 Vosk es una biblioteca de reconocimiento de voz offline que permite la transcripción de audio a texto en tiempo real. El servicio Vosk se ejecuta en un contenedor separado, procesando el stream de audio del micrófono y enviando el texto transcrito a través de WebSocket para su uso en la interfaz. [Sitio oficial](https://alphacephei.com/vosk/)
@@ -108,8 +123,8 @@ El audio se procesa localmente para mantener la privacidad y reducir la latencia
 4. El sistema clasifica el audio usando Random Forest y muestra el resultado reconocido.
 
 ### Juegos Interactivos
-- **Galaxy Commander**: Controla una nave espacial diciendo comandos como "sube", "baja", "fuego".
-- **Voice Jump**: Salta obstáculos vocalizando sonidos o palabras específicas.
+- **AraPu**: Controla una nave espacial diciendo comandos como "sube", "baja", "fuego".
+- **PoPu**: Salta obstáculos vocalizando sonidos o palabras específicas.
 - Los juegos integran el reconocimiento de voz como mecánica central de jugabilidad.
 
 ### Transcripción con Vosk

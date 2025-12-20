@@ -16,6 +16,8 @@ import asyncio
 
 from . import database as db
 from .synthetic_voice import generate_synthetic_samples
+from fastapi import Body
+from . import main as main_module
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/training", tags=["training"])
@@ -86,19 +88,25 @@ async def list_keywords():
         # Contar samples desde DB
         samples = await db.get_samples_by_keyword(keyword['id'])
         
-        # Verificar si tiene modelo RF entrenado
-        model_path = MODELS_DIR / "rf_classifier.pkl"
-        has_trained_model = model_path.exists()
-        
+        # Verificar si hay modelos entrenados para RF y FW
+        rf_model_path = MODELS_DIR / "rf_classifier.pkl"
+        fw_model_path = MODELS_DIR / "fw_classifier.pkl"
+        has_rf_model = rf_model_path.exists()
+        has_fw_model = fw_model_path.exists()
+
         # Un keyword necesita entrenamiento si tiene samples pero no hay modelo
         # o si tiene menos de 20 samples (mínimo recomendado para RF)
-        needs_training = len(samples) > 0 and (not has_trained_model or len(samples) < 20)
+        needs_training = len(samples) > 0 and ((not has_rf_model and not has_fw_model) or len(samples) < 20)
         
         result.append({
             "name": keyword['name'],
             "n_templates": keyword.get('n_templates', 0),
             "n_samples": len(samples),
             "needs_training": needs_training,
+            "models": {
+                'rf': has_rf_model,
+                'fw': has_fw_model
+            },
             "created_at": keyword.get('created_at')
         })
     
@@ -331,4 +339,56 @@ async def generate_synthetic_samples_endpoint(keyword: str, n_samples: int = 10)
     
     except Exception as e:
         logger.error(f"Error generando muestras sintéticas: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------
+# Classifier management
+# ---------------------------
+@router.get('/classifier')
+async def get_classifier_info():
+    """Retorna el clasificador activo y qué modelos existen en disco."""
+    try:
+        classifier_type = getattr(main_module, 'classifier_type', 'rf')
+        models = {
+            'rf': (MODELS_DIR / 'rf_classifier.pkl').exists(),
+            'fw': (MODELS_DIR / 'fw_classifier.pkl').exists()
+        }
+        return {
+            'success': True,
+            'classifier': classifier_type,
+            'models': models,
+            'available': ['rf', 'fw']
+        }
+    except Exception as e:
+        logger.error(f"Error obteniendo info de classifier: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post('/classifier')
+async def set_active_classifier(payload: dict = Body(...)):
+    """Establece el clasificador activo en runtime. Payload: {"classifier": "rf"|"fw"} """
+    try:
+        classifier = payload.get('classifier')
+        if classifier not in ('rf', 'fw'):
+            raise HTTPException(status_code=400, detail="Classifier must be 'rf' or 'fw'")
+
+        # Set in main module and reload model
+        main_module.classifier_type = classifier
+        ok = main_module.reload_model()
+
+        if not ok:
+            return {
+                'success': False,
+                'message': f"No se pudo recargar el modelo '{classifier}' (ver logs)"
+            }
+
+        return {
+            'success': True,
+            'message': f"Classifier activo cambiado a '{classifier}'"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error estableciendo classifier activo: {e}")
         raise HTTPException(status_code=500, detail=str(e))

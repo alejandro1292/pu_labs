@@ -130,8 +130,14 @@ async def train_random_forest(request: TrainRequest):
         # 4. Recargar el modelo en el servidor principal
         from . import main
         try:
+            # Recargar modelo en el servidor principal según configuración activa
             main.rf_classifier = RandomForestKeywordClassifier.load(RF_MODEL_FILE)
-            logger.info(f"✓ Modelo recargado en servidor principal")
+            # Si la configuración actual está en 'rf', recargar como activo
+            if getattr(main, 'classifier_type', 'rf') == 'rf':
+                main.reload_model()
+                logger.info(f"✓ Modelo recargado en servidor principal (activo)")
+            else:
+                logger.info(f"✓ Modelo RF guardado en servidor principal (no activo)")
             logger.info(f"   Keywords activos: {', '.join(main.rf_classifier.keywords)}")
         except Exception as e:
             logger.error(f"⚠️  Error recargando modelo en servidor: {e}")

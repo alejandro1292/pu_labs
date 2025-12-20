@@ -41,14 +41,14 @@ const state = {
     enemiesKilled: 0,
     lastBombTime: 0,
     hasSpeedPowerup: false, // Powerup de velocidad de disparo activo
-    
+
     // Keywords Configuration
     keywords: {
         up: null,
         down: null,
         bomb: null
     },
-    
+
     // Game Entities
     player: null,
     bullets: [],
@@ -56,7 +56,7 @@ const state = {
     explosions: [],
     shockwaves: [], // Ondas expansivas de bombas
     powerups: [], // Premios (vidas y bombas)
-    
+
     // Timers
     enemySpawnTimer: null,
     gameLoopId: null
@@ -81,13 +81,13 @@ class Player {
 
     draw(ctx) {
         ctx.save();
-        
+
         // Efecto de powerup de velocidad (brillo amarillo eléctrico)
         if (state.hasSpeedPowerup) {
             const pulseTime = Date.now() * 0.008;
             const pulseSize = 1 + Math.sin(pulseTime) * 0.2;
-            const glowGradient = ctx.createRadialGradient(this.x + this.width / 2, this.y, 0, 
-                                                         this.x + this.width / 2, this.y, 40 * pulseSize);
+            const glowGradient = ctx.createRadialGradient(this.x + this.width / 2, this.y, 0,
+                this.x + this.width / 2, this.y, 40 * pulseSize);
             glowGradient.addColorStop(0, 'rgba(255, 255, 0, 0.6)');
             glowGradient.addColorStop(0.5, 'rgba(255, 220, 0, 0.3)');
             glowGradient.addColorStop(1, 'rgba(255, 255, 0, 0)');
@@ -96,7 +96,7 @@ class Player {
             ctx.arc(this.x + this.width / 2, this.y, 45 * pulseSize, 0, Math.PI * 2);
             ctx.fill();
         }
-        
+
         // Nave principal (triángulo apuntando a la derecha)
         ctx.fillStyle = this.color;
         ctx.beginPath();
@@ -105,17 +105,17 @@ class Player {
         ctx.lineTo(this.x, this.y + this.height / 2); // Abajo izquierda
         ctx.closePath();
         ctx.fill();
-        
+
         // Brillo
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 2;
         ctx.stroke();
-        
+
         // Alas (rectángulos)
         ctx.fillStyle = '#6c5ce7';
         ctx.fillRect(this.x - 5, this.y - this.height / 2 - 5, 15, 10);
         ctx.fillRect(this.x - 5, this.y + this.height / 2 - 5, 15, 10);
-        
+
         // Motor (círculo con brillo)
         const gradient = ctx.createRadialGradient(this.x - 10, this.y, 5, this.x - 10, this.y, 15);
         gradient.addColorStop(0, '#ff6b6b');
@@ -125,7 +125,7 @@ class Player {
         ctx.beginPath();
         ctx.arc(this.x - 10, this.y, 12, 0, Math.PI * 2);
         ctx.fill();
-        
+
         ctx.restore();
     }
 
@@ -145,7 +145,7 @@ class Player {
         } else {
             this.y = this.targetY;
         }
-        
+
         if (this.shootCooldown > 0) this.shootCooldown--;
     }
 
@@ -171,7 +171,7 @@ class Bullet {
 
     draw(ctx) {
         ctx.save();
-        
+
         // Proyectil (rombo alargado)
         ctx.fillStyle = this.color;
         ctx.beginPath();
@@ -181,14 +181,14 @@ class Bullet {
         ctx.lineTo(this.x + this.width / 2, this.y + this.height);
         ctx.closePath();
         ctx.fill();
-        
+
         // Estela brillante
         const gradient = ctx.createLinearGradient(this.x, this.y, this.x - 20, this.y);
         gradient.addColorStop(0, 'rgba(0, 255, 136, 0.8)');
         gradient.addColorStop(1, 'rgba(0, 255, 136, 0)');
         ctx.fillStyle = gradient;
         ctx.fillRect(this.x - 20, this.y - 2, 20, 4);
-        
+
         ctx.restore();
     }
 
@@ -207,7 +207,7 @@ class Enemy {
         this.x = x;
         this.y = y;
         this.baseY = y;
-        
+
         // Determinar tipo de enemigo (resistencia)
         const rand = Math.random();
         if (rand < 0.5) {
@@ -219,28 +219,28 @@ class Enemy {
         } else {
             this.maxHp = 5;
         }
-        
+
         this.hp = this.maxHp;
-        
+
         // Tamaño proporcional a la resistencia
         const baseSize = 25;
         this.baseWidth = baseSize + (this.maxHp - 1) * 10;
         this.baseHeight = baseSize + (this.maxHp - 1) * 10;
         this.width = this.baseWidth;
         this.height = this.baseHeight;
-        
+
         // Velocidad variable (más rápido = menos HP generalmente)
         const speedVariation = (Math.random() - 0.5) * 1.5;
         this.speed = config.enemyBaseSpeed + (state.level - 1) * 0.5 + speedVariation - (this.maxHp - 1) * 0.3;
         this.speed = Math.max(1, this.speed); // Velocidad mínima
-        
+
         this.amplitude = 50 + Math.random() * 50; // Amplitud de la onda
         this.frequency = 0.02 + Math.random() * 0.02; // Frecuencia de la onda
         this.phase = Math.random() * Math.PI * 2; // Fase inicial
         this.color = this.getColorByHp();
         this.shape = Math.floor(Math.random() * 4); // 0: círculo, 1: cuadrado, 2: triángulo, 3: rombo
     }
-    
+
     getColorByHp() {
         // Color según HP: más oscuro/rojo = más resistente
         const colors = {
@@ -252,7 +252,7 @@ class Enemy {
         const colorSet = colors[this.maxHp] || colors[1];
         return colorSet[Math.floor(Math.random() * colorSet.length)];
     }
-    
+
     takeDamage() {
         this.hp--;
         if (this.hp > 0) {
@@ -271,7 +271,7 @@ class Enemy {
     draw(ctx) {
         ctx.save();
         ctx.translate(this.x, this.y);
-        
+
         ctx.fillStyle = this.color;
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 2;
@@ -283,13 +283,13 @@ class Enemy {
                 ctx.fill();
                 ctx.stroke();
                 break;
-            
+
             case 1: // Cuadrado rotado
                 ctx.rotate(Math.PI / 4);
                 ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
                 ctx.strokeRect(-this.width / 2, -this.height / 2, this.width, this.height);
                 break;
-            
+
             case 2: // Triángulo
                 ctx.beginPath();
                 ctx.moveTo(0, -this.height / 2);
@@ -299,7 +299,7 @@ class Enemy {
                 ctx.fill();
                 ctx.stroke();
                 break;
-            
+
             case 3: // Rombo
                 ctx.beginPath();
                 ctx.moveTo(0, -this.height / 2);
@@ -317,11 +317,11 @@ class Enemy {
 
     update() {
         this.x -= this.speed;
-        
+
         // Movimiento ondulatorio (sinusoidal)
         const distanceTraveled = config.width - this.x;
         this.y = this.baseY + Math.sin(distanceTraveled * this.frequency + this.phase) * this.amplitude;
-        
+
         // Mantener dentro de los límites
         this.y = Math.max(this.height / 2 + 20, Math.min(config.height - this.height / 2 - 20, this.y));
     }
@@ -360,17 +360,17 @@ class Explosion {
     draw(ctx) {
         ctx.save();
         ctx.globalAlpha = this.opacity;
-        
+
         const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);
         gradient.addColorStop(0, '#ffffff');
         gradient.addColorStop(0.3, this.color);
         gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-        
+
         ctx.fillStyle = gradient;
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
         ctx.fill();
-        
+
         ctx.restore();
     }
 
@@ -402,7 +402,7 @@ class BombShockwave {
 
     draw(ctx) {
         ctx.save();
-        
+
         this.waves.forEach(wave => {
             const waveRadius = this.radius + wave.offset;
             if (waveRadius > 0 && waveRadius < this.maxRadius) {
@@ -411,13 +411,13 @@ class BombShockwave {
                 ctx.lineWidth = 8;
                 ctx.shadowBlur = 20;
                 ctx.shadowColor = wave.color;
-                
+
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, waveRadius, 0, Math.PI * 2);
                 ctx.stroke();
             }
         });
-        
+
         // Flash central
         if (this.radius < 100) {
             ctx.globalAlpha = this.opacity;
@@ -425,13 +425,13 @@ class BombShockwave {
             gradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
             gradient.addColorStop(0.3, 'rgba(255, 107, 107, 0.5)');
             gradient.addColorStop(1, 'rgba(255, 107, 107, 0)');
-            
+
             ctx.fillStyle = gradient;
             ctx.beginPath();
             ctx.arc(this.x, this.y, this.radius + 50, 0, Math.PI * 2);
             ctx.fill();
         }
-        
+
         ctx.restore();
     }
 
@@ -461,15 +461,15 @@ class PowerUp {
 
     draw(ctx) {
         ctx.save();
-        
+
         this.pulse += 0.1;
         const pulseScale = 1 + Math.sin(this.pulse) * 0.15;
         const size = this.width * pulseScale;
-        
+
         ctx.translate(this.x, this.y);
         this.rotation += 0.05;
         ctx.rotate(this.rotation);
-        
+
         // Fondo brillante
         const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, size);
         if (this.type === 'life') {
@@ -485,12 +485,12 @@ class PowerUp {
             gradient.addColorStop(0.5, 'rgba(255, 220, 0, 0.5)');
             gradient.addColorStop(1, 'rgba(255, 255, 0, 0)');
         }
-        
+
         ctx.fillStyle = gradient;
         ctx.beginPath();
         ctx.arc(0, 0, size * 1.5, 0, Math.PI * 2);
         ctx.fill();
-        
+
         // Icono
         ctx.font = `${size * 1.2}px Arial`;
         ctx.textAlign = 'center';
@@ -502,7 +502,7 @@ class PowerUp {
         } else if (this.type === 'speed') {
             ctx.fillText('⚡', 0, 0);
         }
-        
+
         ctx.restore();
     }
 
@@ -519,6 +519,65 @@ class PowerUp {
         const dy = this.y - player.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         return distance < (this.width + player.width) / 2;
+    }
+}
+
+/**
+ * Fetch the currently active classifier from the backend and set the select value
+ */
+async function getActiveClassifier() {
+    try {
+        const resp = await fetch(`http://${window.location.host}/api/training/classifier`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const select = document.getElementById('classifier-select');
+        if (data && data.classifier && select) {
+            select.value = data.classifier;
+        }
+    } catch (err) {
+        console.warn('Could not fetch active classifier:', err);
+    }
+}
+
+/**
+ * Post the selected classifier to the backend to set it active
+ * @param {string} classifier
+ */
+async function setActiveClassifier(classifier) {
+    if (!classifier) return;
+    const select = document.getElementById('classifier-select');
+    if (select) select.disabled = true;
+    try {
+        const resp = await fetch(`http://${window.location.host}/api/training/classifier`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ classifier })
+        });
+        if (!resp.ok) {
+            const txt = await resp.text().catch(() => null);
+            throw new Error(txt || `HTTP ${resp.status}`);
+        }
+
+        // After changing classifier, we need to refresh keywords
+        // If websocket is open, we can send a message or just wait for it to reconnect/refresh
+        // For simplicity, let's just trigger a reload of keywords if possible
+        if (audioState.websocket && audioState.websocket.readyState === WebSocket.OPEN) {
+            // The backend reload_model() is called on /api/training/classifier POST
+            // We might need to re-fetch keywords
+            const kwResp = await fetch(`http://${window.location.host}/api/training/keywords`);
+            if (kwResp.ok) {
+                const kwData = await kwResp.json();
+                loadKeywordsToSelects(kwData.keywords.map(k => k.name));
+            }
+        }
+
+        showNotification(`Clasificador ${classifier.toUpperCase()} activado`, 'success');
+    } catch (err) {
+        console.error('Failed to set active classifier:', err);
+        showNotification('Error al cambiar clasificador', 'error');
+        await getActiveClassifier();
+    } finally {
+        if (select) select.disabled = false;
     }
 }
 
@@ -556,20 +615,20 @@ function updateConnectionStatus(status, isActive) {
     // Actualizar estado de audio
     const statusElement = document.getElementById('audio-status');
     const badge = document.getElementById('mic-status-badge');
-    
+
     if (statusElement) {
         statusElement.textContent = `🎤 ${status}`;
         statusElement.style.color = isActive ? 'var(--success-color)' : 'var(--text-secondary)';
     }
-    
+
     if (badge) {
         badge.style.background = isActive ? 'var(--success-color)' : 'var(--error-color)';
     }
-    
+
     // Actualizar indicador WebSocket
     const indicator = document.getElementById('ws-indicator');
     const statusText = document.getElementById('ws-status-text');
-    
+
     if (indicator && statusText) {
         if (isActive) {
             indicator.classList.add('connected');
@@ -583,7 +642,7 @@ function updateConnectionStatus(status, isActive) {
 
 function handleWebSocketMessage(data, ws) {
     console.log('Mensaje recibido:', data);
-    
+
     switch (data.type) {
         case 'connected':
             if (!data.keywords || data.keywords.length === 0) {
@@ -592,13 +651,13 @@ function handleWebSocketMessage(data, ws) {
             }
             loadKeywordsToSelects(data.keywords);
             break;
-        
+
         case 'detection':
             if (state.isRunning) {
                 handleVoiceCommand(data.keyword);
             }
             break;
-        
+
         default:
             console.log('Tipo de mensaje desconocido:', data.type);
     }
@@ -608,11 +667,11 @@ function loadKeywordsToSelects(keywords) {
     const upSelect = document.getElementById('up-keyword');
     const downSelect = document.getElementById('down-keyword');
     const bombSelect = document.getElementById('bomb-keyword');
-    
+
     [upSelect, downSelect, bombSelect].forEach(select => {
         // Guardar selección actual
         const currentValue = select.value;
-        
+
         // Limpiar y repoblar
         select.innerHTML = '<option value="">Selecciona keyword...</option>';
         keywords.forEach(kw => {
@@ -621,25 +680,25 @@ function loadKeywordsToSelects(keywords) {
             option.textContent = kw;
             select.appendChild(option);
         });
-        
+
         // Restaurar selección si existe
         if (currentValue && keywords.includes(currentValue)) {
             select.value = currentValue;
         }
     });
-    
+
     // Autoseleccionar keywords predefinidos si existen
     const keywordMap = {
-        'up-keyword': ['sube', 'arriba', 'subir'],
-        'down-keyword': ['baja', 'abajo', 'bajar'],
-        'bomb-keyword': ['fuego', 'bomba', 'disparo']
+        'up-keyword': ['sube', 'arriba', 'subir', 'up'],
+        'down-keyword': ['baja', 'abajo', 'bajar', 'down'],
+        'bomb-keyword': ['fuego', 'bomba', 'disparo', 'go', 'wow']
     };
-    
+
     Object.entries(keywordMap).forEach(([selectId, possibleKeywords]) => {
         const select = document.getElementById(selectId);
         if (select && !select.value) {
             // Buscar si alguna palabra clave está disponible
-            const found = possibleKeywords.find(kw => 
+            const found = possibleKeywords.find(kw =>
                 keywords.some(k => k.toLowerCase() === kw.toLowerCase())
             );
             if (found) {
@@ -654,10 +713,10 @@ function handleVoiceCommand(keyword) {
     if (!state.isRunning || !state.player) return;
 
     const keywordLower = keyword.toLowerCase();
-    
+
     // Mostrar keyword en overlay de audio
     showKeywordInAudioOverlay(keyword);
-    
+
     // Resaltar control activo
     if (state.keywords.up && keywordLower === state.keywords.up.toLowerCase()) {
         highlightControl('up');
@@ -674,20 +733,20 @@ function handleVoiceCommand(keyword) {
 function showKeywordInAudioOverlay(keyword) {
     const overlay = document.getElementById('audio-keyword-overlay');
     const text = document.getElementById('audio-keyword-text');
-    
+
     if (!overlay || !text) return;
-    
+
     // Limpiar timeout anterior
     if (audioState.keywordTimeout) {
         clearTimeout(audioState.keywordTimeout);
     }
-    
+
     // Mostrar keyword
     text.textContent = keyword.toUpperCase();
     overlay.style.opacity = '1';
     overlay.classList.remove('fade-out');
     overlay.classList.add('fade-in');
-    
+
     // Fade out después de 5 segundos
     audioState.keywordTimeout = setTimeout(() => {
         overlay.classList.remove('fade-in');
@@ -709,7 +768,7 @@ function sendAudioData(audioData) {
             audioData.byteOffset,
             audioData.byteOffset + audioData.byteLength
         );
-        
+
         audioState.websocket.send(buffer);
     }
 }
@@ -725,14 +784,14 @@ async function initAudioStream() {
                 sampleRate: 16000
             }
         });
-        
+
         // Crear AudioContext
         audioState.audioContext = new (window.AudioContext || window.webkitAudioContext)({
             sampleRate: 16000
         });
-        
+
         const source = audioState.audioContext.createMediaStreamSource(audioState.mediaStream);
-        
+
         // Crear visualizador circular
         const canvas = document.getElementById('audio-visualizer');
         const vizResult = createAudioVisualizer(
@@ -748,12 +807,12 @@ async function initAudioStream() {
                 smoothing: 0.7
             }
         );
-        
+
         if (vizResult) {
             audioState.circularVisualizer = vizResult.visualizer;
             audioState.circularVisualizer.start();
         }
-        
+
         // Crear VAD (Voice Activity Detector)
         audioState.vad = new VoiceActivityDetector({
             energyThreshold: 0.003,
@@ -774,30 +833,30 @@ async function initAudioStream() {
                 // Opcional: actualizar UI con nivel de energía
             }
         });
-        
+
         // Crear ScriptProcessorNode para enviar audio
         audioState.scriptProcessorNode = audioState.audioContext.createScriptProcessor(4096, 1, 1);
-        
+
         audioState.scriptProcessorNode.onaudioprocess = (event) => {
             if (!audioState.isStreaming || !audioState.websocket || audioState.websocket.readyState !== WebSocket.OPEN) return;
-            
+
             const inputData = event.inputBuffer.getChannelData(0);
-            
+
             // Procesar con VAD
             if (audioState.vad) {
                 audioState.vad.process(inputData);
             }
         };
-        
+
         // Conectar nodos
         source.connect(audioState.scriptProcessorNode);
         audioState.scriptProcessorNode.connect(audioState.audioContext.destination);
-        
+
         audioState.isStreaming = true;
-        
+
         console.log('✓ Audio stream inicializado');
         updateConnectionStatus('Grabando', true);
-        
+
         return true;
     } catch (error) {
         console.error('✗ Error al inicializar audio:', error);
@@ -809,19 +868,19 @@ async function initAudioStream() {
 
 function stopAudioStream() {
     audioState.isStreaming = false;
-    
+
     // Resetear VAD
     if (audioState.vad) {
         audioState.vad.reset();
         audioState.vad = null;
     }
-    
+
     // Limpiar timeout del keyword overlay
     if (audioState.keywordTimeout) {
         clearTimeout(audioState.keywordTimeout);
         audioState.keywordTimeout = null;
     }
-    
+
     // Limpiar overlay
     const overlay = document.getElementById('audio-keyword-overlay');
     const text = document.getElementById('audio-keyword-text');
@@ -830,29 +889,29 @@ function stopAudioStream() {
         overlay.style.opacity = '0';
         overlay.classList.remove('fade-in', 'fade-out');
     }
-    
+
     // Detener visualizador
     if (audioState.circularVisualizer) {
         audioState.circularVisualizer.stop();
         audioState.circularVisualizer = null;
     }
-    
+
     // Detener audio
     if (audioState.scriptProcessorNode) {
         audioState.scriptProcessorNode.disconnect();
         audioState.scriptProcessorNode = null;
     }
-    
+
     if (audioState.mediaStream) {
         audioState.mediaStream.getTracks().forEach(track => track.stop());
         audioState.mediaStream = null;
     }
-    
+
     if (audioState.audioContext) {
         audioState.audioContext.close();
         audioState.audioContext = null;
     }
-    
+
     updateConnectionStatus('Detenido', false);
 }
 
@@ -863,22 +922,22 @@ function stopAudioStream() {
 function initGame() {
     config.canvas = document.getElementById('game-canvas');
     config.ctx = config.canvas.getContext('2d');
-    
+
     // Cargar keywords del localStorage si existen
     const savedKeywords = localStorage.getItem('galaxy_keywords');
     if (savedKeywords) {
         state.keywords = JSON.parse(savedKeywords);
         updateControlsDisplay();
     }
-    
+
     connectWebSocket();
-    
+
     // Event Listeners
     document.getElementById('test-btn').addEventListener('click', startTestMode);
     document.getElementById('start-btn').addEventListener('click', startGame);
     document.getElementById('restart-btn').addEventListener('click', restartGame);
     document.getElementById('pause-btn').addEventListener('click', togglePause);
-    
+
     // Keyboard controls para pruebas
     document.addEventListener('keydown', (e) => {
         // Pausa con P o Escape
@@ -886,11 +945,11 @@ function initGame() {
             togglePause();
             return;
         }
-       
+
         if (!state.isRunning || !state.player || state.isPaused) return;
-        
+
         if (!keyboardModeEnabled) return;
-        
+
         if (e.key === 'ArrowUp' || e.key === 'w') {
             state.player.moveUp();
             // Agrega el texto del keyword al overlay
@@ -909,10 +968,10 @@ function initGame() {
 
 async function startTestMode() {
     if (!validateKeywords()) return;
-    
+
     saveKeywords();
     updateControlsDisplay();
-    
+
     // Iniciar audio streaming
     await connectWebSocket();
     const audioInitialized = await initAudioStream();
@@ -920,26 +979,26 @@ async function startTestMode() {
         showToast('Error al inicializar audio. Verifica los permisos del micrófono.', 'error');
         return;
     }
-    
+
     state.isTestMode = true;
-    
+
     resetGameState();
     startGameLoop();
-    
+
     // Mostrar botón de pausa
     document.getElementById('pause-btn').style.display = 'block';
     document.getElementById('test-btn').style.display = 'none';
     document.getElementById('start-btn').style.display = 'none';
-    
+
     showNotification('Modo prueba iniciado - Usa tu voz o teclado', 'info');
 }
 
 async function startGame() {
     if (!validateKeywords()) return;
-    
+
     saveKeywords();
     updateControlsDisplay();
-    
+
     // Iniciar audio streaming
     await connectWebSocket();
     const audioInitialized = await initAudioStream();
@@ -947,18 +1006,18 @@ async function startGame() {
         showToast('Error al inicializar audio. Verifica los permisos del micrófono.', 'error');
         return;
     }
-    
+
     state.isTestMode = false;
-    
+
     resetGameState();
     startGameLoop();
     startEnemySpawner();
-    
+
     // Mostrar botón de pausa
     document.getElementById('pause-btn').style.display = 'block';
     document.getElementById('test-btn').style.display = 'none';
     document.getElementById('start-btn').style.display = 'none';
-    
+
     showNotification('¡Partida iniciada! ¡Buena suerte!', 'success');
 }
 
@@ -966,17 +1025,17 @@ function validateKeywords() {
     const up = document.getElementById('up-keyword').value;
     const down = document.getElementById('down-keyword').value;
     const bomb = document.getElementById('bomb-keyword').value;
-    
+
     if (!up || !down || !bomb) {
         showNotification('Por favor selecciona todos los keywords', 'error');
         return false;
     }
-    
+
     if (up === down || up === bomb || down === bomb) {
         showNotification('Los keywords deben ser diferentes', 'error');
         return false;
     }
-    
+
     state.keywords = { up, down, bomb };
     return true;
 }
@@ -990,7 +1049,7 @@ function updateControlsDisplay() {
     const upSelect = document.getElementById('up-keyword');
     const downSelect = document.getElementById('down-keyword');
     const bombSelect = document.getElementById('bomb-keyword');
-    
+
     if (upSelect && state.keywords.up) upSelect.value = state.keywords.up;
     if (downSelect && state.keywords.down) downSelect.value = state.keywords.down;
     if (bombSelect && state.keywords.bomb) bombSelect.value = state.keywords.bomb;
@@ -1004,14 +1063,14 @@ function resetGameState() {
     state.level = 1;
     state.enemiesKilled = 0;
     state.lastBombTime = 0;
-    
+
     state.player = new Player(80, config.height / 2);
     state.bullets = [];
     state.enemies = [];
     state.explosions = [];
     state.shockwaves = [];
     state.powerups = [];
-    
+
     updateUI();
 }
 
@@ -1019,7 +1078,7 @@ function startGameLoop() {
     if (state.gameLoopId) {
         cancelAnimationFrame(state.gameLoopId);
     }
-    
+
     gameLoop();
 }
 
@@ -1027,7 +1086,7 @@ function startEnemySpawner() {
     if (state.enemySpawnTimer) {
         clearInterval(state.enemySpawnTimer);
     }
-    
+
     state.enemySpawnTimer = setInterval(() => {
         if (state.isRunning && !state.isTestMode) {
             spawnEnemy();
@@ -1042,14 +1101,14 @@ function spawnEnemy() {
 
 function gameLoop() {
     if (!state.isRunning) return;
-    
+
     // Clear canvas
     config.ctx.fillStyle = '#0a0a1e';
     config.ctx.fillRect(0, 0, config.width, config.height);
-    
+
     // Dibujar estrellas de fondo
     drawStars();
-    
+
     // Si está en pausa, mostrar overlay y no actualizar
     if (state.isPaused) {
         // Dibujar todo congelado
@@ -1059,78 +1118,78 @@ function gameLoop() {
         state.bullets.forEach(bullet => bullet.draw(config.ctx));
         state.enemies.forEach(enemy => enemy.draw(config.ctx));
         state.explosions.forEach(explosion => explosion.draw(config.ctx));
-        
+
         drawPauseOverlay();
         state.gameLoopId = requestAnimationFrame(gameLoop);
         return;
     }
-    
+
     // Update & Draw Player
     if (state.player) {
         state.player.update();
         state.player.draw(config.ctx);
-        
+
         // Auto-shoot
         if (!state.isTestMode) {
             state.player.shoot();
         }
     }
-    
+
     // Update & Draw Bullets
     state.bullets = state.bullets.filter(bullet => {
         bullet.update();
         bullet.draw(config.ctx);
         return !bullet.isOffScreen();
     });
-    
+
     // Update & Draw Enemies
     state.enemies = state.enemies.filter(enemy => {
         enemy.update();
         enemy.draw(config.ctx);
-        
+
         // Colisión con jugador
         if (!state.isTestMode && enemy.collidesWithPlayer(state.player)) {
             createExplosion(enemy.x, enemy.y, enemy.color);
             loseLife();
             return false;
         }
-        
+
         return !enemy.isOffScreen();
     });
-    
+
     // Colisiones bala-enemigo
     if (!state.isTestMode) {
         checkBulletCollisions();
     }
-    
+
     // Update & Draw Explosions
     state.explosions = state.explosions.filter(explosion => {
         explosion.update();
         explosion.draw(config.ctx);
         return !explosion.isDone();
     });
-    
+
     // Update & Draw Shockwaves (ondas expansivas de bombas)
     state.shockwaves = state.shockwaves.filter(shockwave => {
         shockwave.update();
         shockwave.draw(config.ctx);
         return !shockwave.isDone();
     });
-    
+
     // Update & Draw PowerUps
     state.powerups = state.powerups.filter(powerup => {
         powerup.update();
         powerup.draw(config.ctx);
-        
+
         // Colisión con jugador
         if (state.player && powerup.collidesWithPlayer(state.player)) {
             collectPowerup(powerup);
             return false;
         }
-        
+
         return !powerup.isOffScreen();
     });
-    
+
     state.gameLoopId = requestAnimationFrame(gameLoop);
 }
 
@@ -1147,26 +1206,26 @@ function drawStars() {
 function checkBulletCollisions() {
     for (let i = state.bullets.length - 1; i >= 0; i--) {
         const bullet = state.bullets[i];
-        
+
         for (let j = state.enemies.length - 1; j >= 0; j--) {
             const enemy = state.enemies[j];
-            
+
             if (enemy.collidesWith(bullet)) {
                 // Eliminar bala
                 state.bullets.splice(i, 1);
-                
+
                 // Aplicar daño al enemigo
                 const destroyed = enemy.takeDamage();
                 if (destroyed) {
                     // Eliminar enemigo si fue destruido
                     state.enemies.splice(j, 1);
-                    
+
                     // Explosión y puntos (más puntos por enemigos más resistentes)
                     createExplosion(enemy.x, enemy.y, enemy.color);
                     state.enemiesKilled++;
                     const scoreBonus = enemy.maxHp * 50; // 50, 100, 150, 250 puntos
                     addScore((100 + scoreBonus) * state.level);
-                    
+
                     // Subir nivel cada 10 enemigos
                     if (state.enemiesKilled % 10 === 0) {
                         levelUp();
@@ -1176,7 +1235,7 @@ function checkBulletCollisions() {
                     createSmallExplosion(enemy.x, enemy.y, enemy.color);
                     addScore(25 * state.level); // Puntos por impacto
                 }
-                
+
                 break;
             }
         }
@@ -1198,7 +1257,7 @@ function createSmallExplosion(x, y, color) {
 function togglePause() {
     state.isPaused = !state.isPaused;
     const pauseBtn = document.getElementById('pause-btn');
-    
+
     if (state.isPaused) {
         pauseBtn.textContent = '▶️ Reanudar';
         showNotification('⏸️ Juego pausado (P o ESC para continuar)', 'info');
@@ -1211,13 +1270,13 @@ function togglePause() {
 function drawPauseOverlay() {
     config.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
     config.ctx.fillRect(0, 0, config.width, config.height);
-    
+
     config.ctx.fillStyle = '#00d9ff';
     config.ctx.font = 'bold 48px Arial';
     config.ctx.textAlign = 'center';
     config.ctx.textBaseline = 'middle';
     config.ctx.fillText('⏸️ PAUSA', config.width / 2, config.height / 2 - 30);
-    
+
     config.ctx.fillStyle = '#ffffff';
     config.ctx.font = '20px Arial';
     config.ctx.fillText('Presiona P o ESC para continuar', config.width / 2, config.height / 2 + 30);
@@ -1230,15 +1289,15 @@ function addScore(points) {
 
 function loseLife() {
     state.lives--;
-    
+
     // Desactivar powerup de velocidad al perder vida
     if (state.hasSpeedPowerup) {
         state.hasSpeedPowerup = false;
         showNotification('⚡ Disparo rápido perdido', 'warning');
     }
-    
+
     updateUI();
-    
+
     if (state.lives <= 0) {
         gameOver();
     } else {
@@ -1249,11 +1308,11 @@ function loseLife() {
 function levelUp() {
     state.level++;
     updateUI();
-    
+
     // Spawear horda de enemigos según el nivel
     const hordeSize = state.level * 3; // 3, 6, 9, 12... enemigos
     spawnHorde(hordeSize);
-    
+
     // Cada 2 niveles, spawear powerup detrás de la horda (rotación: vida, bomba, speed)
     if (state.level % 2 === 0) {
         const powerupCycle = Math.floor(state.level / 2) % 3;
@@ -1267,7 +1326,7 @@ function levelUp() {
         }
         spawnPowerupBehindHorde(powerupType, hordeSize);
     }
-    
+
     showNotification(`¡Nivel ${state.level}! Horda de ${hordeSize} enemigos entrantes`, 'warning');
 }
 
@@ -1279,32 +1338,32 @@ function spawnHorde(count) {
         'v-shape', // Forma de V
         'scattered' // Dispersos
     ];
-    
+
     const formation = formations[Math.floor(Math.random() * formations.length)];
-    
+
     for (let i = 0; i < count; i++) {
         let x, y;
-        
+
         switch (formation) {
             case 'wave':
                 // Formación en onda sinusoidal
                 x = config.width + 100 + (i * 60);
                 y = config.height / 2 + Math.sin(i * 0.5) * 150;
                 break;
-                
+
             case 'line':
                 // Línea horizontal
                 x = config.width + 100 + (i * 50);
                 y = 100 + (config.height - 200) * (i / count);
                 break;
-                
+
             case 'v-shape':
                 // Forma de V
                 x = config.width + 100 + (i * 50);
                 const mid = count / 2;
                 y = config.height / 2 + Math.abs(i - mid) * 30;
                 break;
-                
+
             case 'scattered':
             default:
                 // Dispersos
@@ -1312,7 +1371,7 @@ function spawnHorde(count) {
                 y = 50 + Math.random() * (config.height - 100);
                 break;
         }
-        
+
         // Delay escalonado para que no aparezcan todos a la vez
         setTimeout(() => {
             if (state.isRunning) {
@@ -1327,7 +1386,7 @@ function spawnPowerupBehindHorde(type, hordeSize) {
     const delay = hordeSize * 150 + 1000; // Aparece 1 segundo después del último enemigo
     const x = config.width + 300; // Más lejos a la derecha
     const y = config.height / 2; // Centro vertical
-    
+
     setTimeout(() => {
         if (state.isRunning) {
             state.powerups.push(new PowerUp(x, y, type));
@@ -1369,26 +1428,26 @@ function useBomb() {
         showNotification('🚨 No quedan bombas disponibles', 'warning');
         return;
     }
-    
+
     const now = Date.now();
     if (now - state.lastBombTime < config.bombCooldown) {
         const remaining = Math.ceil((config.bombCooldown - (now - state.lastBombTime)) / 1000);
         showNotification(`Bomba en cooldown (${remaining}s)`, 'warning');
         return;
     }
-    
+
     state.bombs--;
     state.lastBombTime = now;
-    
+
     // Crear onda expansiva desde el centro de la pantalla
     const centerX = config.width / 2;
     const centerY = config.height / 2;
     state.shockwaves.push(new BombShockwave(centerX, centerY));
-    
+
     // Eliminar todos los enemigos con pequeño delay para efecto
     const enemiesDestroyed = state.enemies.length;
     let totalScore = 0;
-    
+
     // Eliminar enemigos de forma progresiva según distancia
     state.enemies.forEach((enemy, index) => {
         setTimeout(() => {
@@ -1396,13 +1455,13 @@ function useBomb() {
                 createExplosion(enemy.x, enemy.y, enemy.color);
             }
         }, index * 20); // 20ms entre cada explosión
-        
+
         state.enemiesKilled++;
         totalScore += (100 + enemy.maxHp * 50) * state.level;
     });
-    
+
     state.enemies = [];
-    
+
     addScore(totalScore);
     updateUI(); // Actualizar bombas en UI
     showNotification(`💣 ¡BOMBA! ${enemiesDestroyed} enemigos eliminados`, 'success');
@@ -1410,26 +1469,26 @@ function useBomb() {
 
 function gameOver() {
     state.isRunning = false;
-    
+
     // Detener audio streaming
     stopAudioStream();
-    
+
     // Cerrar WebSocket
     if (audioState.websocket) {
         closeWebSocket(audioState.websocket);
         audioState.websocket = null;
     }
-    
+
     if (state.gameLoopId) {
         cancelAnimationFrame(state.gameLoopId);
         state.gameLoopId = null;
     }
-    
+
     if (state.enemySpawnTimer) {
         clearInterval(state.enemySpawnTimer);
         state.enemySpawnTimer = null;
     }
-    
+
     document.getElementById('final-score').textContent = state.score;
     document.getElementById('gameover-overlay').classList.remove('hidden');
 }
@@ -1437,7 +1496,7 @@ function gameOver() {
 function restartGame() {
     document.getElementById('gameover-overlay').classList.add('hidden');
     // Los controles ya están visibles en el panel izquierdo
-    
+
     // Mostrar botones de inicio y ocultar pausa
     document.getElementById('pause-btn').style.display = 'none';
     document.getElementById('test-btn').style.display = 'block';
@@ -1449,7 +1508,7 @@ function updateUI() {
     document.getElementById('lives-display').textContent = state.lives;
     document.getElementById('level-display').textContent = state.level;
     document.getElementById('enemies-display').textContent = state.enemiesKilled;
-    
+
     // Actualizar corazones
     const heartsContainer = document.getElementById('lives-hearts');
     heartsContainer.innerHTML = '';
@@ -1459,7 +1518,7 @@ function updateUI() {
         heart.textContent = '❤️';
         heartsContainer.appendChild(heart);
     }
-    
+
     // Actualizar bombas
     const bombsContainer = document.getElementById('bombs-display');
     if (bombsContainer) {
@@ -1483,19 +1542,32 @@ const DOUBLE_CLICK_DELAY = 300; // ms
 document.addEventListener('click', (e) => {
     const currentTime = Date.now();
     const timeSinceLastClick = currentTime - lastClickTime;
-    
+
     if (timeSinceLastClick < DOUBLE_CLICK_DELAY && timeSinceLastClick > 0) {
         // Doble click detectado
         keyboardModeEnabled = !keyboardModeEnabled;
-        
+
         if (keyboardModeEnabled) {
             showNotification('⌨️ Modo teclado activado, usa espacio para saltar', 'info');
         } else {
             showNotification('🎤 Modo teclado desactivado', 'info');
         }
     }
-    
+
     lastClickTime = currentTime;
+});
+
+// Inicialización al cargar la página
+window.addEventListener('load', () => {
+    initGame();
+    getActiveClassifier();
+
+    const classifierSelect = document.getElementById('classifier-select');
+    if (classifierSelect) {
+        classifierSelect.addEventListener('change', () => {
+            setActiveClassifier(classifierSelect.value);
+        });
+    }
 });
 
 // Limpiar al cerrar página

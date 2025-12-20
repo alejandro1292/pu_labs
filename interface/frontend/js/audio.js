@@ -11,7 +11,7 @@
  * Configuración común de WebSocket
  */
 const WEBSOCKET_CONFIG = {
-    baseUrl: `ws://${window.location.hostname}:8000`,
+    baseUrl: `ws://${window.location.host}`,
     reconnectDelay: 3000,
     maxReconnectAttempts: 5
 };

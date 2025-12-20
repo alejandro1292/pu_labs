@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/keywords.css">
 </head>
+
 <body>
     <div class="training-container">
         <header>
@@ -15,25 +17,33 @@
             <p class="subtitle">
                 Gestiona y entrena modelos de detección de voz con Random Forest.<br>
                 <strong>Usa grabaciones reales</strong> para mejores resultados.<br>
-                También puedes generar muestras sintéticas con gTTS o edge-tts, y agregar variaciones y ruido para mayor realismo.
+                También puedes generar muestras sintéticas con gTTS o edge-tts, y agregar variaciones y ruido para mayor
+                realismo.
             </p>
         </header>
 
         <section class="control-panel">
-            <h2 style="display: flex; justify-content: space-between; align-items: center;">
+            <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
                 <span class="section-title">Gestión de Keywords</span>
-                <button class="btn btn-secondary" onclick="handleTrainKeyword()">
-                    🤖 Entrenar Keywords (RF)
-                </button>
+                <div class="control-actions">
+                    <select id="classifier-select" class="form-select" aria-label="Seleccionar clasificador">
+                        <option value="rf">Random Forest (RF)</option>
+                        <option value="fw">Fourier + Wavelet (FW)</option>
+                    </select>
+                    <button id="compare-models-btn" class="btn btn-secondary control-btn">📊 Comparar Modelos</button>
+                    <button id="train-keywords-btn" class="btn btn-primary control-btn train-btn">🤖 Entrenar Keywords
+                        (RF)</button>
+                </div>
             </h2>
-            
+
             <div class="keyword-input-group">
-                <input type="text" id="new-keyword-input" class="keyword-input" placeholder="Nombre del nuevo keyword (ej: hola, start, stop)">
+                <input type="text" id="new-keyword-input" class="keyword-input"
+                    placeholder="Nombre del nuevo keyword (ej: hola, start, stop)">
                 <button id="create-keyword-btn" class="btn btn-primary">
                     ➕ Crear Keyword
                 </button>
-                
-                
+
+
             </div>
 
             <div id="keywords-container" class="keyword-grid">
@@ -66,7 +76,8 @@
                     </div>
                 </div>
                 <div id="modal-status" class="recording-status">Listo para grabar</div>
-                <div id="modal-instructions" class="recording-instructions">Presiona "Iniciar" y di la palabra cuando se indique</div>
+                <div id="modal-instructions" class="recording-instructions">Presiona "Iniciar" y di la palabra cuando se
+                    indique</div>
                 <div class="modal-actions">
                     <button id="modal-start-btn" class="btn btn-primary">🔴 Iniciar Grabación</button>
                     <button id="modal-stop-btn" class="btn btn-danger" disabled>⏹️ Detener</button>
@@ -104,13 +115,20 @@
                         <div class="value" id="model-intra-score">-</div>
                     </div>
                 </div>
-                
+
                 <h3 style="margin-top: 25px; color: var(--primary-color);">🎯 Centroide Temporal</h3>
                 <p style="color: var(--text-secondary); font-size: 0.9rem;">
                     Representación promedio de todos los templates (MFCC features)
                 </p>
                 <canvas id="centroid-canvas"></canvas>
-                
+
+                <h3 style="margin-top: 25px; color: var(--primary-color);">🌊 Espectrograma (Ejemplo)</h3>
+                <div style="text-align: center; margin: 15px 0;">
+                    <img id="spectrogram-img" src="" alt="Espectrograma"
+                        style="max-width: 100%; border-radius: 8px; border: 1px solid var(--bg-light); display: none;">
+                    <p id="spectrogram-placeholder" style="color: var(--text-secondary);">Cargando espectrograma...</p>
+                </div>
+
                 <h3 style="margin-top: 25px; color: var(--primary-color);">⚙️ Umbrales de Detección</h3>
                 <div style="margin: 15px 0;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
@@ -128,12 +146,14 @@
                         ❌ Scores mayores a <strong>Max</strong> = Rechazo
                     </p>
                 </div>
-                
-                <div style="margin-top: 20px; padding: 15px; background: var(--bg-dark); border-radius: 8px; border-left: 4px solid var(--primary-color);">
+
+                <div
+                    style="margin-top: 20px; padding: 15px; background: var(--bg-dark); border-radius: 8px; border-left: 4px solid var(--primary-color);">
                     <h4 style="margin: 0 0 10px 0; color: var(--primary-color);">📈 Información del Modelo</h4>
                     <p style="margin: 5px 0; color: var(--text-secondary); font-size: 0.9rem;">
                         <strong>Centroide:</strong> <span id="centroid-info">-</span><br>
-                        <strong>Variabilidad:</strong> Score intra-clase indica qué tan similares son los templates entre sí<br>
+                        <strong>Variabilidad:</strong> Score intra-clase indica qué tan similares son los templates
+                        entre sí<br>
                         <strong>Eficiencia:</strong> 1 comparación DTW vs N templates (20x más rápido)
                     </p>
                 </div>
@@ -149,6 +169,7 @@
     </div>
 
     <!-- Toast Container -->
+    <input type="file" id="upload-files-input" multiple accept="audio/*" style="display: none;">
     <div id="toast-container"></div>
 
     <!-- Confirm Modal -->
@@ -175,7 +196,8 @@
             </div>
             <div class="modal-body">
                 <p id="prompt-message" style="white-space: pre-line; line-height: 1.6; margin-bottom: 15px;"></p>
-                <input type="text" id="prompt-input" class="form-input" style="width: 100%; padding: 10px; background: var(--bg-dark); border: 1px solid var(--bg-light); border-radius: 8px; color: white; font-size: 1rem;">
+                <input type="text" id="prompt-input" class="form-input"
+                    style="width: 100%; padding: 10px; background: var(--bg-dark); border: 1px solid var(--bg-light); border-radius: 8px; color: white; font-size: 1rem;">
             </div>
             <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end;">
                 <button id="prompt-cancel-btn" class="btn btn-secondary">Cancelar</button>
@@ -207,7 +229,8 @@
                 <button class="modal-close" id="close-training-results-btn">×</button>
             </div>
             <div class="modal-body">
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px;">
+                <div
+                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px;">
                     <div class="stat-card">
                         <h4>Accuracy</h4>
                         <div class="value" id="tr-accuracy">-</div>
@@ -229,12 +252,12 @@
                         <span class="unit">%</span>
                     </div>
                 </div>
-                
+
                 <h3 style="margin-top: 25px; color: var(--primary-color);">📊 Matriz de Confusión</h3>
                 <div id="confusion-matrix-container" style="margin: 20px 0;">
                     <canvas id="confusion-matrix-canvas"></canvas>
                 </div>
-                
+
                 <h3 style="margin-top: 25px; color: var(--primary-color);">🔄 Cross-Validation</h3>
                 <div style="display: flex; gap: 15px; margin: 15px 0;">
                     <div class="stat-card" style="flex: 1;">
@@ -248,13 +271,14 @@
                         <span class="unit">±%</span>
                     </div>
                 </div>
-                
+
                 <h3 style="margin-top: 25px; color: var(--primary-color);">📈 Distribución de Muestras por Keyword</h3>
                 <div id="samples-distribution-container" style="margin: 20px 0;">
                     <canvas id="samples-distribution-canvas"></canvas>
                 </div>
-                
-                <div style="margin-top: 20px; padding: 15px; background: var(--bg-dark); border-radius: 8px; border-left: 4px solid var(--success-color);">
+
+                <div
+                    style="margin-top: 20px; padding: 15px; background: var(--bg-dark); border-radius: 8px; border-left: 4px solid var(--success-color);">
                     <p style="margin: 5px 0; color: var(--text-secondary); font-size: 0.9rem;">
                         <strong>📁 Modelo guardado:</strong> <span id="tr-model-path">-</span><br>
                         <strong>🔢 Keywords:</strong> <span id="tr-keywords">-</span><br>
@@ -272,5 +296,5 @@
     <script src="js/audio.js"></script>
     <script src="js/keywords.js"></script>
 </body>
-</html>
 
+</html>

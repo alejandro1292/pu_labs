@@ -46,11 +46,13 @@ const elements = {
     micStatus: document.getElementById('mic-status'),
     wsStatus: document.getElementById('ws-status'),
     vadStatus: document.getElementById('vad-status'),
+    classifierStatus: document.getElementById('classifier-status'),
     currentDetection: document.getElementById('current-detection'),
     detectionHistory: document.getElementById('detection-history'),
     keywordsList: document.getElementById('keywords-list'),
     liveAudioCanvas: document.getElementById('live-audio-canvas'),
-    audioLevel: document.getElementById('audio-level')
+    audioLevel: document.getElementById('audio-level'),
+    classifierSelect: document.getElementById('classifier-select')
 };
 
 /**
@@ -75,7 +77,7 @@ async function connectWebSocket() {
  */
 function handleWebSocketMessage(data, ws) {
     console.log('Mensaje recibido:', data);
-    
+
     switch (data.type) {
         case 'connected':
             state.keywords = data.keywords || [];
@@ -83,12 +85,14 @@ function handleWebSocketMessage(data, ws) {
             if (!data.templates_available) {
                 showNotification('No hay templates entrenados. Usa train.py para crear templates.', 'warning');
             }
+            // Also refresh classifier status when connected
+            refreshClassifierStatus();
             break;
-        
+
         case 'detection':
             handleDetection(data.keyword, data.confidence);
             break;
-        
+
         case 'reset_ack':
             showNotification('Sistema reiniciado', 'info');
             break;
@@ -100,28 +104,27 @@ function handleWebSocketMessage(data, ws) {
  */
 function handleDetection(keyword, confidence) {
     const now = Date.now();
-    
+
     // Evitar detecciones duplicadas muy cercanas
     if (now - state.lastDetectionTime < 500) {
         return;
     }
-    
+
     state.lastDetectionTime = now;
-    state.detectionCount++;
-    
-    console.log(`🎯 Detectado: ${keyword} (confianza: ${confidence.toFixed(2)})`);
-    
-    // Alert al usuario
-    //alert(`Detectado: ${keyword.toUpperCase()}`);
-    
-    // Actualizar display actual
+
+    console.log(`🎯 Resultado: ${keyword} (confianza: ${confidence.toFixed(2)})`);
+
+    // Actualizar display actual (overlay circular)
     updateCurrentDetection(keyword, confidence);
-    
-    // Agregar al historial
-    addToHistory(keyword, confidence);
-    
-    // Reproducir sonido (opcional)
-    playDetectionSound();
+
+    // Si es una detección válida (no un rechazo "?"), agregar al historial
+    if (keyword !== "?") {
+        state.detectionCount++;
+        addToHistory(keyword, confidence);
+        playDetectionSound();
+    } else {
+        playErrorSound();
+    }
 }
 
 /**
@@ -129,25 +132,25 @@ function handleDetection(keyword, confidence) {
  */
 function updateCurrentDetection(keyword, confidence) {
     const confidencePercent = (confidence * 100).toFixed(0);
-    
+
     const overlay = document.getElementById('audio-overlay');
-    
+
     // Limpiar timeout anterior si existe
     if (state.overlayTimeout) {
         clearTimeout(state.overlayTimeout);
     }
-    
+
     // Mostrar overlay (quitar fade-out si estaba)
     overlay.classList.remove('fade-out');
     overlay.classList.add('fade-in');
-    
+
     elements.currentDetection.innerHTML = `
         <div class="detection-keyword">${keyword.toUpperCase()}</div>
         <div class="detection-confidence">
             ${confidencePercent}%
         </div>
     `;
-    
+
     // Desvanecer después de 5 segundos
     state.overlayTimeout = setTimeout(() => {
         overlay.classList.remove('fade-in');
@@ -164,10 +167,10 @@ function addToHistory(keyword, confidence) {
     if (placeholder) {
         placeholder.remove();
     }
-    
+
     const timestamp = new Date().toLocaleTimeString();
     const confidencePercent = (confidence * 100).toFixed(0);
-    
+
     const item = document.createElement('div');
     item.className = 'history-item';
     item.innerHTML = `
@@ -176,10 +179,10 @@ function addToHistory(keyword, confidence) {
         <span class="history-confidence">${confidencePercent}%</span>
         <span class="history-time">${timestamp}</span>
     `;
-    
+
     // Insertar al inicio
     elements.detectionHistory.insertBefore(item, elements.detectionHistory.firstChild);
-    
+
     // Limitar a 50 items
     const items = elements.detectionHistory.querySelectorAll('.history-item');
     if (items.length > 50) {
@@ -195,11 +198,94 @@ function updateKeywordsList() {
         elements.keywordsList.textContent = 'No hay keywords configuradas';
         return;
     }
-    
+
     elements.keywordsList.innerHTML = state.keywords
         .map(kw => `<span class="keyword-tag">${kw}</span>`)
         .join('');
 }
+
+async function refreshClassifierStatus() {
+    try {
+        const resp = await fetch(`http://${window.location.host}/status`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const cls = data.classifier_type || data.classifier || 'rf';
+        const ready = data.model_ready ? true : false;
+        const acc = data.test_accuracy || 0;
+
+        if (elements.classifierStatus) {
+            elements.classifierStatus.textContent = cls.toUpperCase();
+            elements.classifierStatus.classList.toggle('status-inactive', !ready);
+            elements.classifierStatus.classList.toggle('status-active', ready);
+            if (ready) {
+                elements.classifierStatus.title = `Modelo listo (accuracy: ${(acc * 100).toFixed(1)}%)`;
+            } else {
+                elements.classifierStatus.title = 'Modelo no cargado o no entrenado';
+            }
+        }
+    } catch (err) {
+        console.warn('No se pudo obtener status del servidor:', err);
+    }
+}
+
+// Refresh classifier status periodically
+setInterval(refreshClassifierStatus, 15000);
+
+/**
+ * Fetch the currently active classifier from the backend and set the select value
+ */
+async function getActiveClassifier() {
+    try {
+        const resp = await fetch(`http://${window.location.host}/api/training/classifier`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (data && data.classifier && elements.classifierSelect) {
+            elements.classifierSelect.value = data.classifier;
+        }
+    } catch (err) {
+        console.warn('Could not fetch active classifier:', err);
+    }
+}
+
+/**
+ * Post the selected classifier to the backend to set it active
+ * @param {string} classifier
+ */
+async function setActiveClassifier(classifier) {
+    if (!classifier) return;
+    if (elements.classifierSelect) elements.classifierSelect.disabled = true;
+    try {
+        const resp = await fetch(`http://${window.location.host}/api/training/classifier`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ classifier })
+        });
+        if (!resp.ok) {
+            const txt = await resp.text().catch(() => null);
+            throw new Error(txt || `HTTP ${resp.status}`);
+        }
+        // Refresh status immediately after change
+        await refreshClassifierStatus();
+    } catch (err) {
+        console.error('Failed to set active classifier:', err);
+        // attempt to revert select to backend value
+        await getActiveClassifier();
+    } finally {
+        if (elements.classifierSelect) elements.classifierSelect.disabled = false;
+    }
+}
+
+if (elements.classifierSelect) {
+    elements.classifierSelect.addEventListener('change', async () => {
+        await setActiveClassifier(elements.classifierSelect.value);
+    });
+}
+
+// Also fetch once on load
+document.addEventListener('DOMContentLoaded', () => {
+    refreshClassifierStatus();
+    getActiveClassifier();
+});
 
 /**
  * Inicializa captura de audio
@@ -215,14 +301,14 @@ async function initAudio() {
                 sampleRate: CONFIG.targetSampleRate
             }
         });
-        
+
         // Crear AudioContext
         state.audioContext = new (window.AudioContext || window.webkitAudioContext)({
             sampleRate: CONFIG.targetSampleRate
         });
-        
+
         const source = state.audioContext.createMediaStreamSource(state.mediaStream);
-        
+
         // Crear visualizador circular
         const vizResult = createAudioVisualizer(
             elements.liveAudioCanvas,
@@ -237,12 +323,12 @@ async function initAudio() {
                 smoothing: 0.75
             }
         );
-        
+
         if (vizResult) {
             state.circularVisualizer = vizResult.visualizer;
             state.circularVisualizer.start();
         }
-        
+
         // Crear VAD (Voice Activity Detector)
         state.vad = new VoiceActivityDetector({
             energyThreshold: CONFIG.vadEnergyThreshold,
@@ -264,7 +350,7 @@ async function initAudio() {
                 const rms = Math.sqrt(energy);
                 const level = Math.min(100, Math.round(rms * 1000));
                 elements.audioLevel.textContent = `Nivel: ${level}%`;
-                
+
                 // Actualizar indicador VAD
                 if (isHighEnergy) {
                     updateStatus('vad', 'active', `VOZ ALTA (${(energy * 1000).toFixed(1)})`);
@@ -275,15 +361,15 @@ async function initAudio() {
                 }
             }
         });
-        
+
         // Usar ScriptProcessorNode (compatible con más navegadores)
         state.scriptProcessorNode = state.audioContext.createScriptProcessor(CONFIG.bufferSize, 1, 1);
-        
+
         state.scriptProcessorNode.onaudioprocess = (event) => {
             if (!state.isRecording) return;
-            
+
             const inputData = event.inputBuffer.getChannelData(0);
-            
+
             // VAD en cliente: solo enviar si hay voz
             if (CONFIG.vadEnabled && state.vad) {
                 state.vad.process(inputData);
@@ -292,15 +378,15 @@ async function initAudio() {
                 sendAudioData(inputData);
             }
         };
-        
+
         // Conectar nodos
         source.connect(state.scriptProcessorNode);
         state.scriptProcessorNode.connect(state.audioContext.destination);
-        
+
         console.log('✓ Audio inicializado');
         console.log(`  Sample rate: ${state.audioContext.sampleRate} Hz`);
         console.log(`  Buffer size: ${CONFIG.bufferSize} samples`);
-        
+
         return true;
     } catch (error) {
         console.error('✗ Error al inicializar audio:', error);
@@ -319,7 +405,7 @@ function sendAudioData(audioData) {
             audioData.byteOffset,
             audioData.byteOffset + audioData.byteLength
         );
-        
+
         state.websocket.send(buffer);
     }
 }
@@ -331,21 +417,21 @@ async function startRecording() {
     try {
         // Conectar WebSocket
         await connectWebSocket();
-        
+
         // Inicializar audio
         const audioInitialized = await initAudio();
         if (!audioInitialized) return;
-        
+
         // Iniciar grabación
         state.isRecording = true;
-        
+
         // Actualizar UI
         updateStatus('mic', 'active', 'Activo');
         elements.startBtn.disabled = true;
         elements.stopBtn.disabled = false;
-        
+
         showNotification('Grabación iniciada. Di un comando...', 'success');
-        
+
     } catch (error) {
         console.error('Error al iniciar grabación:', error);
         showNotification('Error al iniciar grabación', 'error');
@@ -357,48 +443,48 @@ async function startRecording() {
  */
 function stopRecording() {
     state.isRecording = false;
-    
+
     // Limpiar timeout del overlay
     if (state.overlayTimeout) {
         clearTimeout(state.overlayTimeout);
         state.overlayTimeout = null;
     }
-    
+
     // Detener visualizador circular
     if (state.circularVisualizer) {
         state.circularVisualizer.stop();
         state.circularVisualizer = null;
     }
-    
+
     // Detener audio
     if (state.scriptProcessorNode) {
         state.scriptProcessorNode.disconnect();
         state.scriptProcessorNode = null;
     }
-    
+
     if (state.mediaStream) {
         state.mediaStream.getTracks().forEach(track => track.stop());
         state.mediaStream = null;
     }
-    
+
     if (state.audioContext) {
         state.audioContext.close();
         state.audioContext = null;
     }
-    
+
     // Cerrar WebSocket
     if (state.websocket) {
         closeWebSocket(state.websocket);
         state.websocket = null;
     }
-    
+
     // Actualizar UI
     updateStatus('mic', 'inactive', 'Inactivo');
     updateStatus('ws', 'disconnected', 'Desconectado');
     elements.startBtn.disabled = false;
     elements.stopBtn.disabled = true;
     elements.audioLevel.textContent = 'Nivel: -';
-    
+
     showNotification('Grabación detenida', 'info');
 }
 
@@ -409,19 +495,19 @@ function resetSystem() {
     if (state.websocket && state.websocket.readyState === WebSocket.OPEN) {
         state.websocket.send(JSON.stringify({ type: 'reset' }));
     }
-    
+
     state.detectionCount = 0;
-    
+
     // Limpiar timeout del overlay
     if (state.overlayTimeout) {
         clearTimeout(state.overlayTimeout);
         state.overlayTimeout = null;
     }
-    
+
     // Resetear overlay
     const overlay = document.getElementById('audio-overlay');
     overlay.classList.remove('fade-out', 'fade-in');
-    
+
     elements.currentDetection.innerHTML = `
         <span class="detection-placeholder">Esperando...</span>
     `;
@@ -444,7 +530,7 @@ function clearHistory() {
  */
 function updateStatus(type, status, text) {
     let element;
-    
+
     switch (type) {
         case 'mic':
             element = elements.micStatus;
@@ -456,7 +542,7 @@ function updateStatus(type, status, text) {
             element = elements.vadStatus;
             break;
     }
-    
+
     if (element) {
         element.className = `status-badge status-${status}`;
         element.textContent = text;
@@ -479,20 +565,46 @@ function playDetectionSound() {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const oscillator = audioCtx.createOscillator();
         const gainNode = audioCtx.createGain();
-        
+
         oscillator.connect(gainNode);
         gainNode.connect(audioCtx.destination);
-        
+
         oscillator.frequency.value = 800;
         oscillator.type = 'sine';
-        
+
         gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
         gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
-        
+
         oscillator.start(audioCtx.currentTime);
         oscillator.stop(audioCtx.currentTime + 0.2);
     } catch (error) {
-        console.error('Error al reproducir sonido:', error);
+        console.error('Error al reproducir sonido de detección:', error);
+    }
+}
+
+/**
+ * Reproduce sonido de error (para no-detecciones)
+ */
+function playErrorSound() {
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        // Frecuencia más baja y tipo sierra para sonar a "error"
+        oscillator.frequency.value = 150;
+        oscillator.type = 'sawtooth';
+
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + 0.3);
+    } catch (error) {
+        console.error('Error al reproducir sonido de error:', error);
     }
 }
 
