@@ -133,6 +133,76 @@ const VAD_DEFAULT_CONFIG = {
     sampleRate: 16000              // Sample rate del audio
 };
 
+// Valor deseado para la aplicación (mantener 16 kHz)
+const DESIRED_SAMPLE_RATE = 16000;
+
+/**
+ * Obtiene o crea un AudioContext compartido con sampleRate preferido. Algunos
+ * navegadores ignoran la opción "sampleRate"; en ese caso se crea el contexto
+ * por defecto y se registra que será necesario resamplear los buffers antes
+ * de enviarlos al servicio que requiere 16 kHz.
+ */
+function getSharedAudioContext(desiredSampleRate = DESIRED_SAMPLE_RATE) {
+    if (window._sharedAudioContext && window._sharedAudioContext.state !== 'closed') {
+        return window._sharedAudioContext;
+    }
+
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    let ctx;
+    try {
+        ctx = new Ctx({ sampleRate: desiredSampleRate });
+    } catch (err) {
+        // Algunos navegadores pueden lanzar al pasar la opción; fallback a default
+        ctx = new Ctx();
+    }
+
+    // Registrar en window para que otros módulos puedan reutilizarlo
+    window._sharedAudioContext = ctx;
+
+    // Avisar si el sampleRate creado no coincide con el deseado
+    if (ctx.sampleRate !== desiredSampleRate) {
+        console.warn(`AudioContext creado con sampleRate ${ctx.sampleRate} Hz; se desea ${desiredSampleRate} Hz. Se aplicará resampling cuando sea necesario.`);
+        window._needsResampleTo = desiredSampleRate;
+    } else {
+        window._needsResampleTo = null;
+    }
+
+    return ctx;
+}
+
+/**
+ * Resamplea un Float32Array de inputSampleRate a outputSampleRate usando
+ * interpolación lineal (rápido y suficiente para voz en tiempo real).
+ */
+function resampleFloat32(input, inputSampleRate, outputSampleRate) {
+    if (inputSampleRate === outputSampleRate) return input;
+    const ratio = outputSampleRate / inputSampleRate;
+    const outputLength = Math.round(input.length * ratio);
+    const output = new Float32Array(outputLength);
+
+    for (let i = 0; i < outputLength; i++) {
+        const t = i / ratio;
+        const i0 = Math.floor(t);
+        const i1 = Math.min(i0 + 1, input.length - 1);
+        const frac = t - i0;
+        output[i] = input[i0] * (1 - frac) + input[i1] * frac;
+    }
+
+    return output;
+}
+
+/**
+ * Convierte un Float32Array normalizado [-1,1] a Int16Array PCM
+ */
+function floatToInt16(float32) {
+    const int16 = new Int16Array(float32.length);
+    for (let i = 0; i < float32.length; i++) {
+        const s = Math.max(-1, Math.min(1, float32[i]));
+        int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+    }
+    return int16;
+}
+
 /**
  * Clase para Voice Activity Detection (VAD)
  * Detecta cuando hay voz vs silencio y acumula segmentos completos
@@ -471,20 +541,28 @@ function createAudioVisualizer(canvasOrId, audioContext, mediaStream, options = 
         console.error('Canvas no encontrado');
         return null;
     }
+
+    // Usar AudioContext proporcionado o crear/obtener el compartido
+    const ctx = audioContext || getSharedAudioContext();
+
+    // Si el contexto existe pero su sampleRate no coincide con el deseado, avisar
+    if (ctx.sampleRate !== DESIRED_SAMPLE_RATE) {
+        console.warn(`El AudioContext tiene sampleRate ${ctx.sampleRate} Hz; la app espera ${DESIRED_SAMPLE_RATE} Hz. Se aplicará resampling donde sea necesario.`);
+    }
     
-    // Crear analizador
-    const analyser = audioContext.createAnalyser();
+    // Crear analizador en el contexto elegido
+    const analyser = ctx.createAnalyser();
     analyser.fftSize = options.fftSize || 256;
     analyser.smoothingTimeConstant = options.smoothingTimeConstant || 0.8;
     
-    // Conectar source al analyser
-    const source = audioContext.createMediaStreamSource(mediaStream);
+    // Crear source usando el contexto correcto
+    const source = ctx.createMediaStreamSource(mediaStream);
     source.connect(analyser);
     
     // Crear visualizador
     const visualizer = new CircularAudioVisualizer(canvas, analyser, options);
     
-    return { visualizer, analyser, source };
+    return { visualizer, analyser, source, audioContext: ctx };
 }
 
 /**
@@ -504,6 +582,9 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         CircularAudioVisualizer,
         createAudioVisualizer,
-        quickCircularVisualizer
+        quickCircularVisualizer,
+        getSharedAudioContext,
+        resampleFloat32,
+        floatToInt16
     };
 }

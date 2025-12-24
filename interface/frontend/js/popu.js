@@ -951,9 +951,13 @@ async function initAudioStream() {
             
             const inputData = event.inputBuffer.getChannelData(0);
             
+            // Resample si el context no está a 16 kHz
+            const ctxSampleRate = state.audio.audioContext ? state.audio.audioContext.sampleRate : 16000;
+            const dataToUse = (ctxSampleRate !== 16000 && typeof resampleFloat32 === 'function') ? resampleFloat32(inputData, ctxSampleRate, 16000) : inputData;
+            
             // Procesar con VAD
             if (state.audio.vad) {
-                state.audio.vad.process(inputData);
+                state.audio.vad.process(dataToUse);
             }
         };
         
@@ -1012,7 +1016,13 @@ function stopAudioStream() {
     }
     
     if (state.audio.audioContext) {
-        state.audio.audioContext.close();
+        try {
+            if (!window._sharedAudioContext || state.audio.audioContext !== window._sharedAudioContext) {
+                state.audio.audioContext.close();
+            }
+        } catch (e) {
+            console.warn('Error cerrando AudioContext:', e);
+        }
         state.audio.audioContext = null;
     }
 }

@@ -302,12 +302,41 @@ async function initAudio() {
             }
         });
 
-        // Crear AudioContext
-        state.audioContext = new (window.AudioContext || window.webkitAudioContext)({
-            sampleRate: CONFIG.targetSampleRate
-        });
+        // Crear / obtener AudioContext compartido (preferir 16 kHz)
+        state.audioContext = (typeof getSharedAudioContext === 'function')
+            ? getSharedAudioContext(CONFIG.targetSampleRate)
+            : new (window.AudioContext || window.webkitAudioContext)({ sampleRate: CONFIG.targetSampleRate });
 
-        const source = state.audioContext.createMediaStreamSource(state.mediaStream);
+        // Intentar crear MediaStreamSource en el contexto seleccionado. Algunos navegadores
+        // pueden lanzar si hay otros AudioContexts con distinto sampleRate; en ese caso
+        // creamos un contexto dedicado (sin forzar sampleRate) y reintentamos.
+        let source;
+        try {
+            // Log de ayuda para depuración
+            const trackSettings = state.mediaStream.getAudioTracks()[0]?.getSettings?.() || {};
+            console.log(`Audio track settings: sampleRate=${trackSettings.sampleRate || 'n/a'}`);
+            console.log(`Usando AudioContext sampleRate=${state.audioContext.sampleRate}`);
+
+            source = state.audioContext.createMediaStreamSource(state.mediaStream);
+        } catch (err) {
+            console.warn('createMediaStreamSource falló en el contexto actual (posible conflicto de sample-rate). Intentando contexto dedicado...', err);
+
+            try {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                const dedicatedCtx = new Ctx(); // dejar que el navegador establezca el sampleRate disponible
+
+                // Marcar que usamos un contexto dedicado para cerrarlo al detener
+                state._usesDedicatedAudioContext = true;
+
+                state.audioContext = dedicatedCtx;
+                console.log(`Contexto dedicado creado con sampleRate=${state.audioContext.sampleRate}`);
+
+                source = state.audioContext.createMediaStreamSource(state.mediaStream);
+            } catch (err2) {
+                console.error('Error al crear contexto dedicado o MediaStreamSource:', err2);
+                throw err; // rethrow original para que el flujo de error sea manejado arriba
+            }
+        }
 
         // Crear visualizador circular
         const vizResult = createAudioVisualizer(
@@ -370,12 +399,19 @@ async function initAudio() {
 
             const inputData = event.inputBuffer.getChannelData(0);
 
+            // Resample si el AudioContext no está a 16 kHz
+            const ctxSampleRate = state.audioContext ? state.audioContext.sampleRate : CONFIG.targetSampleRate;
+            let dataToUse = inputData;
+            if (ctxSampleRate !== CONFIG.targetSampleRate && typeof resampleFloat32 === 'function') {
+                dataToUse = resampleFloat32(inputData, ctxSampleRate, CONFIG.targetSampleRate);
+            }
+
             // VAD en cliente: solo enviar si hay voz
             if (CONFIG.vadEnabled && state.vad) {
-                state.vad.process(inputData);
+                state.vad.process(dataToUse);
             } else {
                 // Modo sin VAD: enviar todo
-                sendAudioData(inputData);
+                sendAudioData(dataToUse);
             }
         };
 
@@ -468,7 +504,14 @@ function stopRecording() {
     }
 
     if (state.audioContext) {
-        state.audioContext.close();
+        try {
+            // Si es el contexto compartido, no lo cerramos (se reutiliza). Solo cerramos si era un contexto dedicado.
+            if (!window._sharedAudioContext || state.audioContext !== window._sharedAudioContext) {
+                state.audioContext.close();
+            }
+        } catch (e) {
+            console.warn('Error cerrando AudioContext:', e);
+        }
         state.audioContext = null;
     }
 

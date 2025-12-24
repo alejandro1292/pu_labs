@@ -125,7 +125,14 @@ class VoskClient {
             this.mediaStream = null;
         }
         if (this.audioContext) {
-            try { await this.audioContext.close(); } catch(e) {}
+            try {
+                // No cerrar si es el contexto compartido; cerrar sólo si era dedicado
+                if (!window._sharedAudioContext || this.audioContext !== window._sharedAudioContext) {
+                    await this.audioContext.close();
+                }
+            } catch (e) {
+                console.warn('Error cerrando AudioContext:', e);
+            }
             this.audioContext = null;
         }
         
@@ -193,7 +200,8 @@ class VoskClient {
             }
         });
         
-        this.audioContext = new AudioContext({ sampleRate: 16000 });
+        // Use shared AudioContext para evitar conflictos entre múltiples contextos
+        this.audioContext = (typeof getSharedAudioContext === 'function') ? getSharedAudioContext(16000) : new AudioContext({ sampleRate: 16000 });
         const source = this.audioContext.createMediaStreamSource(this.mediaStream);
         
         // Analizador para visualización
@@ -259,27 +267,33 @@ class VoskClient {
         
         this.processor.onaudioprocess = (e) => {
             if (!this.isRecording) return;
-            
-            const float32Data = e.inputBuffer.getChannelData(0);
-            
+
+            let float32Data = e.inputBuffer.getChannelData(0);
+
+            // Resample si el context no está a 16 kHz
+            const ctxSampleRate = this.audioContext ? this.audioContext.sampleRate : 16000;
+            if (ctxSampleRate !== 16000 && typeof resampleFloat32 === 'function') {
+                float32Data = resampleFloat32(float32Data, ctxSampleRate, 16000);
+            }
+
             // Calcular energía del chunk
             let energy = 0;
             for (let i = 0; i < float32Data.length; i++) {
                 energy += float32Data[i] * float32Data[i];
             }
             energy = energy / float32Data.length;
-            
+
             // Actualizar nivel de audio para UI
             const rms = Math.sqrt(energy);
             const level = Math.min(100, Math.floor(rms * 1000));
             this.elements.audioLevel.textContent = `Nivel: ${level}%`;
-            
+
             // Detectar si hay voz
             const hasVoice = energy > this.vadConfig.energyThreshold;
             const isHighEnergy = energy > this.vadConfig.highEnergyThreshold;
-            
+
             const now = Date.now();
-            
+
             if (hasVoice) {
                 // Voz detectada
                 if (!this.isSpeechActive) {
@@ -290,47 +304,47 @@ class VoskClient {
                     this.maxEnergyInSegment = energy;
                     this.silenceChunks = 0;
                     this.segmentDuration = 0;
-                    
+
                     this.log(`🎤 Inicio de speech - energía: ${(energy * 1000).toFixed(1)}`, 'info');
                     this.updateStatus('recording-status', 'Detectando voz...', 'status-recording');
                 }
-                
+
                 // Trackear energía máxima
                 if (energy > this.maxEnergyInSegment) {
                     this.maxEnergyInSegment = energy;
                 }
-                
+
                 // Agregar al buffer (guardar copia)
                 this.audioBuffer.push(new Float32Array(float32Data));
                 this.silenceChunks = 0;
-                
+
                 // Actualizar duración del segmento actual
                 this.segmentDuration += float32Data.length / this.vadConfig.sampleRate;
                 this.elements.audioDuration.textContent = `Duración: ${this.segmentDuration.toFixed(1)}s`;
-                
+
                 const speechDuration = now - this.bufferStartTime;
-                
+
                 // Si excedemos duración máxima, enviar segmento
                 if (speechDuration >= this.vadConfig.maxSpeechDuration) {
                     this.log(`⏱️ Duración máxima alcanzada (${speechDuration}ms)`, 'info');
                     this.sendBufferedAudio('max_duration');
                 }
-                
+
             } else {
                 // Silencio detectado
                 if (this.isSpeechActive) {
                     this.silenceChunks++;
-                    
+
                     // Si hay suficientes chunks de silencio, finalizar segmento
                     if (this.silenceChunks >= this.vadConfig.silenceChunks) {
                         const totalSamples = this.audioBuffer.reduce((sum, arr) => sum + arr.length, 0);
                         const speechDuration = (totalSamples / this.vadConfig.sampleRate) * 1000;
-                        
+
                         // Determinar duración mínima según energía máxima
                         const minDuration = this.maxEnergyInSegment > this.vadConfig.highEnergyThreshold 
                             ? this.vadConfig.minHighEnergySpeech 
                             : this.vadConfig.minSpeechDuration;
-                        
+
                         if (speechDuration >= minDuration) {
                             this.log(`🔇 Silencio detectado - enviando segmento (${speechDuration.toFixed(0)}ms)`, 'info');
                             this.sendBufferedAudio('silence_detected');

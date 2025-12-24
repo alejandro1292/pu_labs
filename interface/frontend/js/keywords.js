@@ -524,8 +524,13 @@ async function startRecording() {
                 offset += chunk.length;
             }
 
-            // Convertir a WAV
-            const wavBlob = audioBufferToWav(fullAudio, state.audioContext.sampleRate);
+            // Asegurar que el WAV esté a 16 kHz (resamplear si es necesario)
+            const sampleRate = state.audioContext ? state.audioContext.sampleRate : 16000;
+            let audioForWav = fullAudio;
+            if (sampleRate !== 16000 && typeof resampleFloat32 === 'function') {
+                audioForWav = resampleFloat32(fullAudio, sampleRate, 16000);
+            }
+            const wavBlob = audioBufferToWav(audioForWav, 16000);
 
             stopRecording();
             await uploadAndRefresh(wavBlob);
