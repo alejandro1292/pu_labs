@@ -527,7 +527,7 @@ class PowerUp {
  */
 async function getActiveClassifier() {
     try {
-        const resp = await fetch(`http://${window.location.host}/api/training/classifier`);
+        const resp = await fetch(`${window.location.protocol}//${window.location.host}/api/training/classifier`);
         if (!resp.ok) return;
         const data = await resp.json();
         const select = document.getElementById('classifier-select');
@@ -548,7 +548,7 @@ async function setActiveClassifier(classifier) {
     const select = document.getElementById('classifier-select');
     if (select) select.disabled = true;
     try {
-        const resp = await fetch(`http://${window.location.host}/api/training/classifier`, {
+        const resp = await fetch(`${window.location.protocol}//${window.location.host}/api/training/classifier`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ classifier })
@@ -564,7 +564,7 @@ async function setActiveClassifier(classifier) {
         if (audioState.websocket && audioState.websocket.readyState === WebSocket.OPEN) {
             // The backend reload_model() is called on /api/training/classifier POST
             // We might need to re-fetch keywords
-            const kwResp = await fetch(`http://${window.location.host}/api/training/keywords`);
+            const kwResp = await fetch(`${window.location.protocol}//${window.location.host}/api/training/keywords`);
             if (kwResp.ok) {
                 const kwData = await kwResp.json();
                 loadKeywordsToSelects(kwData.keywords.map(k => k.name));

@@ -4,7 +4,7 @@
  */
 
 // Configuración
-const API_BASE = `http://${window.location.host}/api/training`;
+const API_BASE = `${window.location.protocol}//${window.location.host}/api/training`;
 const RECORDING_DURATION = 2000; // 2 segundos
 const COUNTDOWN_DURATION = 3000; // 3 segundos
 
@@ -190,7 +190,7 @@ async function trainAllKeywords(keywords) {
 
     try {
         // Ensure we call the backend port (server runs on :8000)
-        const response = await fetch(`http://${window.location.host}${apiPath}`, {
+        const response = await fetch(`${window.location.protocol}//${window.location.host}${apiPath}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -721,7 +721,7 @@ if (elements.classifierSelect) {
     // Inicializar selector con el estado del servidor
     async function refreshClassifierInfo() {
         try {
-            const resp = await fetch(`http://${window.location.host}/api/training/classifier`);
+            const resp = await fetch(`${window.location.protocol}//${window.location.host}/api/training/classifier`);
             const data = await resp.json();
             if (data && data.success) {
                 if (elements.classifierSelect) {
@@ -753,7 +753,7 @@ if (elements.classifierSelect) {
 
             try {
                 showLoader('Cambiando clasificador...', `${desired}`);
-                const resp = await fetch(`http://${window.location.host}/api/training/classifier`, {
+                const resp = await fetch(`${window.location.protocol}//${window.location.host}/api/training/classifier`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ classifier: desired })
@@ -778,8 +778,8 @@ if (elements.classifierSelect) {
             try {
                 showLoader('Comparando modelos...', 'Obteniendo info');
                 const [rfResp, fwResp] = await Promise.all([
-                    fetch(`http://${window.location.host}/api/rf/model/info`).then(r => r.json()).catch(() => null),
-                    fetch(`http://${window.location.host}/api/fw/model/info`).then(r => r.json()).catch(() => null)
+                    fetch(`${window.location.protocol}//${window.location.host}/api/rf/model/info`).then(r => r.json()).catch(() => null),
+                    fetch(`${window.location.protocol}//${window.location.host}/api/fw/model/info`).then(r => r.json()).catch(() => null)
                 ]);
                 hideLoader();
 
@@ -1109,7 +1109,7 @@ async function handleDeleteSample(keyword, sampleId) {
 
 async function handlePlaySample(keyword, filename) {
     try {
-        const audioUrl = `http://${window.location.host}/recordings/${keyword}/${filename}`;
+        const audioUrl = `${window.location.protocol}//${window.location.host}/recordings/${keyword}/${filename}`;
         const audio = new Audio(audioUrl);
 
         audio.onerror = () => {
@@ -1132,7 +1132,7 @@ async function handleViewModel(keyword) {
         showLoader('Cargando modelo...', keyword);
 
         // Intentar obtener info del modelo FW
-        const resp = await fetch(`http://${window.location.host}/api/fw/model/info`);
+        const resp = await fetch(`${window.location.protocol}//${window.location.host}/api/fw/model/info`);
         if (resp.ok) {
             const data = await resp.json();
             const stats = data.training_stats;

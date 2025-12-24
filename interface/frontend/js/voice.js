@@ -206,7 +206,7 @@ function updateKeywordsList() {
 
 async function refreshClassifierStatus() {
     try {
-        const resp = await fetch(`http://${window.location.host}/status`);
+        const resp = await fetch(`${window.location.protocol}//${window.location.host}/status`);
         if (!resp.ok) return;
         const data = await resp.json();
         const cls = data.classifier_type || data.classifier || 'rf';
@@ -236,7 +236,7 @@ setInterval(refreshClassifierStatus, 15000);
  */
 async function getActiveClassifier() {
     try {
-        const resp = await fetch(`http://${window.location.host}/api/training/classifier`);
+        const resp = await fetch(`${window.location.protocol}//${window.location.host}/api/training/classifier`);
         if (!resp.ok) return;
         const data = await resp.json();
         if (data && data.classifier && elements.classifierSelect) {
@@ -255,7 +255,7 @@ async function setActiveClassifier(classifier) {
     if (!classifier) return;
     if (elements.classifierSelect) elements.classifierSelect.disabled = true;
     try {
-        const resp = await fetch(`http://${window.location.host}/api/training/classifier`, {
+        const resp = await fetch(`${window.location.protocol}//${window.location.host}/api/training/classifier`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ classifier })
