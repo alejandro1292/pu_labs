@@ -10,8 +10,9 @@
 /**
  * Configuración común de WebSocket
  */
+const isHttps = window.location.protocol === 'https:';
 const WEBSOCKET_CONFIG = {
-    baseUrl: `ws://${window.location.host}`,
+    baseUrl: `${isHttps ? 'wss' : 'ws'}://${window.location.host}`,
     reconnectDelay: 3000,
     maxReconnectAttempts: 5
 };
